@@ -1,0 +1,266 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #1a1a1a;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+#game-container {
+    position: relative;
+    width: 1280px;
+    height: 720px;
+    background: #000;
+    border: 4px solid #8B4513;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+}
+
+#gameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+#ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#top-ui {
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+}
+
+#player-health {
+    display: flex;
+    gap: 10px;
+}
+
+.health-card {
+    width: 40px;
+    height: 56px;
+    background: #ff6b6b;
+    border: 3px solid #000;
+    border-radius: 5px;
+    position: relative;
+    box-shadow: 0 4px 0 #8B0000;
+}
+
+.health-card::before {
+    content: '♥';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: #fff;
+}
+
+.health-card.lost {
+    background: #333;
+    opacity: 0.3;
+}
+
+#boss-health-container {
+    flex: 1;
+    max-width: 600px;
+    margin-left: 40px;
+}
+
+#boss-name {
+    color: #ffeb3b;
+    font-size: 18px;
+    font-weight: bold;
+    text-shadow: 2px 2px 0 #000;
+    margin-bottom: 5px;
+    text-align: center;
+}
+
+#boss-health-bar {
+    width: 100%;
+    height: 30px;
+    background: #333;
+    border: 4px solid #000;
+    position: relative;
+    overflow: hidden;
+}
+
+#boss-health-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b6b 0%, #ff9f43 50%, #ffd93d 100%);
+    width: 100%;
+    transition: width 0.3s ease;
+    box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.phase-marker {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 3px;
+    background: #000;
+    z-index: 1;
+}
+
+#bottom-ui {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+#weapon-display {
+    background: rgba(0, 0, 0, 0.7);
+    border: 3px solid #ffeb3b;
+    padding: 10px 20px;
+    color: #fff;
+    font-size: 16px;
+    text-shadow: 1px 1px 0 #000;
+}
+
+#super-meter {
+    width: 300px;
+    height: 40px;
+    background: #333;
+    border: 4px solid #000;
+    position: relative;
+    overflow: hidden;
+}
+
+#super-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4ecdc4 0%, #44a08d 100%);
+    width: 0%;
+    transition: width 0.2s ease;
+    box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.card-marker {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 3px;
+    background: #000;
+    z-index: 1;
+}
+
+#start-screen, #victory-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    z-index: 100;
+    animation: fadeIn 0.5s ease;
+}
+
+#start-screen h1, #victory-screen h1 {
+    font-size: 72px;
+    color: #ffeb3b;
+    text-shadow: 4px 4px 0 #8B4513, 6px 6px 0 #000;
+    margin-bottom: 30px;
+    animation: pulse 2s infinite;
+}
+
+#start-screen p, #victory-screen p {
+    font-size: 24px;
+    text-shadow: 2px 2px 0 #000;
+    animation: blink 1.5s infinite;
+}
+
+.controls {
+    margin-top: 40px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 20px 40px;
+    border: 3px solid #8B4513;
+}
+
+.controls p {
+    margin: 8px 0;
+    font-size: 16px;
+    animation: none;
+}
+
+#grade-display {
+    font-size: 120px;
+    font-weight: bold;
+    color: #ffeb3b;
+    text-shadow: 6px 6px 0 #8B4513, 8px 8px 0 #000;
+    margin: 20px 0;
+}
+
+#stats-display {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 30px 50px;
+    border: 3px solid #8B4513;
+    margin: 20px 0;
+}
+
+#stats-display p {
+    font-size: 20px;
+    margin: 10px 0;
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes blink {
+    0%, 50%, 100% { opacity: 1; }
+    25%, 75% { opacity: 0.3; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Retro CRT effect */
+#gameCanvas {
+    filter: contrast(1.1) brightness(1.05);
+}
+
+#game-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.1) 0px,
+        rgba(0, 0, 0, 0.1) 1px,
+        transparent 1px,
+        transparent 2px
+    );
+    pointer-events: none;
+    z-index: 1000;
+}

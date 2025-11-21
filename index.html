@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuphead-Inspired Boss Rush</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-overlay">
+            <div id="top-ui">
+                <div id="player-health"></div>
+                <div id="boss-health-container">
+                    <div id="boss-name"></div>
+                    <div id="boss-health-bar">
+                        <div id="boss-health-fill"></div>
+                        <div class="phase-marker" style="left: 33.33%"></div>
+                        <div class="phase-marker" style="left: 66.66%"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="bottom-ui">
+                <div id="weapon-display"></div>
+                <div id="super-meter">
+                    <div id="super-fill"></div>
+                    <div class="card-marker" style="left: 33.33%"></div>
+                    <div class="card-marker" style="left: 66.66%"></div>
+                </div>
+            </div>
+        </div>
+        <div id="start-screen">
+            <h1>FLOWER FIEND</h1>
+            <p>Press SPACE to begin</p>
+            <div class="controls">
+                <p><strong>Controls:</strong></p>
+                <p>WASD / Arrow Keys - Move</p>
+                <p>J / Z - Shoot</p>
+                <p>K / X - Jump (tap on pink objects to parry)</p>
+                <p>L / C - Dash</p>
+            </div>
+        </div>
+        <div id="victory-screen" style="display: none;">
+            <h1>KNOCKOUT!</h1>
+            <div id="grade-display"></div>
+            <div id="stats-display"></div>
+            <p>Press SPACE to continue</p>
+        </div>
+    </div>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
