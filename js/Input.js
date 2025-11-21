@@ -15,7 +15,9 @@ export class Input {
             dash: ['KeyL', 'KeyC'],
             super: ['KeyI', 'KeyV'],
             pause: ['Escape'],
-            start: ['Space']
+            start: ['Space'],
+            weaponPrev: ['KeyQ'],
+            weaponNext: ['KeyE']
         };
 
         this.setupEventListeners();

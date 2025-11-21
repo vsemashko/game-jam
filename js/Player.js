@@ -55,6 +55,14 @@ export class Player {
 
         // Ground level
         this.groundY = 580;
+
+        // Weapon switching
+        this.weaponSwitchFlash = 0;
+
+        // Super beam (Level III)
+        this.superBeamActive = false;
+        this.superBeamTimer = 0;
+        this.superBeamHit = false;
     }
 
     update(input) {
@@ -63,6 +71,8 @@ export class Player {
         } else {
             this.updateMovement(input);
             this.updateShooting(input);
+            this.updateWeaponSwitching(input);
+            this.updateSuperMoves(input);
         }
 
         this.updateBullets();
@@ -247,6 +257,15 @@ export class Player {
                 this.invulnerable = false;
             }
         }
+
+        // Super beam
+        if (this.superBeamActive) {
+            this.superBeamTimer--;
+            if (this.superBeamTimer <= 0) {
+                this.superBeamActive = false;
+                this.superBeamHit = false;
+            }
+        }
     }
 
     updateAnimation() {
@@ -282,6 +301,98 @@ export class Player {
         this.canDoubleJump = true;
         this.particleSystem.createParryEffect(bullet.x, bullet.y);
         return true;
+    }
+
+    updateWeaponSwitching(input) {
+        const weapons = ['peashooter', 'spread', 'charge'];
+        const currentIndex = weapons.indexOf(this.currentWeapon);
+
+        if (input.isPressed('weaponNext')) {
+            const nextIndex = (currentIndex + 1) % weapons.length;
+            this.currentWeapon = weapons[nextIndex];
+            this.weaponSwitchFlash = 30;
+        } else if (input.isPressed('weaponPrev')) {
+            const prevIndex = (currentIndex - 1 + weapons.length) % weapons.length;
+            this.currentWeapon = weapons[prevIndex];
+            this.weaponSwitchFlash = 30;
+        }
+
+        if (this.weaponSwitchFlash) {
+            this.weaponSwitchFlash--;
+        }
+    }
+
+    updateSuperMoves(input) {
+        if (input.isPressed('super') && this.superMeter >= 100) {
+            // Determine super level based on meter
+            let level = 1;
+            if (this.superMeter >= 300) level = 3;
+            else if (this.superMeter >= 200) level = 2;
+
+            this.activateSuper(level);
+        }
+    }
+
+    activateSuper(level) {
+        const cost = level * 100;
+        if (this.superMeter < cost) return;
+
+        this.superMeter -= cost;
+
+        if (level === 1) {
+            // Level I: Invincibility dash attack
+            this.isDashing = true;
+            this.dashTimer = 30; // Longer dash
+            this.dashSpeed = 20; // Faster
+            this.invulnerable = true;
+            this.dashDir = { x: this.facing, y: 0 };
+            this.dashCooldown = 0; // No cooldown after super dash
+
+            // Create energy bullets during dash
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    if (this.isDashing) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = 8;
+                        const bullet = new Bullet(
+                            this.x,
+                            this.y + this.height / 2,
+                            Math.cos(angle) * speed,
+                            Math.sin(angle) * speed,
+                            2,
+                            true,
+                            '#4ecdc4'
+                        );
+                        this.bullets.push(bullet);
+                    }
+                }, i * 30);
+            }
+        } else if (level === 2) {
+            // Level II: Screen-clearing energy wave
+            this.particleSystem.createExplosion(this.x, this.y + this.height / 2, '#4ecdc4', 50);
+
+            // Create expanding energy ring
+            for (let angle = 0; angle < Math.PI * 2; angle += 0.2) {
+                const bullet = new Bullet(
+                    this.x,
+                    this.y + this.height / 2,
+                    Math.cos(angle) * 10,
+                    Math.sin(angle) * 10,
+                    3,
+                    true,
+                    '#4ecdc4'
+                );
+                bullet.radius = 10;
+                this.bullets.push(bullet);
+            }
+        } else if (level === 3) {
+            // Level III: Giant beam attack
+            this.superBeamActive = true;
+            this.superBeamTimer = 120; // 2 seconds
+
+            // Beam hits instantly across screen
+            this.superBeamHit = true;
+        }
     }
 
     draw(ctx) {
@@ -377,5 +488,48 @@ export class Player {
 
         // Draw bullets
         this.bullets.forEach(bullet => bullet.draw(ctx));
+
+        // Draw super beam (Level III)
+        if (this.superBeamActive) {
+            ctx.save();
+
+            // Massive energy beam
+            const beamWidth = 100;
+            const gradient = ctx.createLinearGradient(this.x, 0, 1280, 0);
+            gradient.addColorStop(0, 'rgba(78, 205, 196, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(78, 205, 196, 0.4)');
+            gradient.addColorStop(1, 'rgba(78, 205, 196, 0)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(
+                this.x,
+                this.y + this.height / 2 - beamWidth / 2,
+                1280 - this.x,
+                beamWidth
+            );
+
+            // Beam core
+            ctx.fillStyle = '#4ecdc4';
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#4ecdc4';
+            ctx.fillRect(
+                this.x,
+                this.y + this.height / 2 - 20,
+                1280 - this.x,
+                40
+            );
+
+            // Particles
+            for (let i = 0; i < 10; i++) {
+                const x = this.x + Math.random() * (1280 - this.x);
+                const y = this.y + this.height / 2 + (Math.random() - 0.5) * beamWidth;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.beginPath();
+                ctx.arc(x, y, 3 + Math.random() * 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
     }
 }

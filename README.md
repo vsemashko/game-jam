@@ -11,11 +11,19 @@ A browser-based 2D boss battle game inspired by Cuphead's run-and-gun mechanics 
 - **Dash** with invincibility frames
 - **Parry system** - Jump on pink objects to gain super meter and bounce
 - **Super meter** - Fill by dealing damage and parrying
+- **3-Level Super Moves** - Use stored super meter for devastating attacks
+- **Weapon Switching** - Cycle through all weapons during battle
+- **Pause System** - Pause anytime during gameplay
 
 ### Weapons
 - **Peashooter**: Default rapid-fire straight shots
-- **Spread**: Wide arc coverage (coming soon - can be switched in code)
-- **Charge**: Hold to charge powerful blasts (coming soon - can be switched in code)
+- **Spread**: Wide arc, lower damage, great coverage
+- **Charge**: Hold to charge, release for powerful blasts
+
+### Super Moves
+- **Level I (100 meter)**: Invincibility dash with energy projectiles
+- **Level II (200 meter)**: Screen-clearing energy wave
+- **Level III (300 meter)**: Massive energy beam attack
 
 ### First Boss: "Cagney Carnation" (Flower Fiend)
 
@@ -29,14 +37,14 @@ A three-phase boss battle featuring:
 #### Phase 2: Unrooted Fury (66-33% HP)
 - Boss moves vertically on screen
 - Homing seeds (parryable)
-- Ground spike waves
-- Petal shield that becomes a projectile attack
+- **Ground spike waves with hitboxes** - Jump to avoid
+- **Petal shield** - Rotating petals damage on contact, then shoot outward
 
 #### Phase 3: Final Bloom (33-0% HP)
 - Rapid seed barrage (every 3rd seed is parryable)
-- Mega chomp attacks
-- Multiple minions
-- Desperation mode below 10% HP
+- **Mega chomp** - Screen-sweeping attack with visual warning
+- Multiple minions spawned simultaneously
+- Desperation mode below 10% HP with overlapping attacks
 
 ## Controls
 
@@ -47,6 +55,9 @@ A three-phase boss battle featuring:
 | Jump | K / X |
 | Dash | L / C |
 | Parry | Jump (K/X) on pink objects |
+| Switch Weapon | Q / E |
+| Super Move | I / V |
+| Pause | ESC |
 | Start | Space |
 
 ## How to Play
@@ -117,13 +128,14 @@ game-jam/
 ├── index.html          # Main HTML file
 ├── styles.css          # Game styling and UI
 ├── js/
-│   ├── main.js         # Game loop and state management
+│   ├── main.js         # Game loop, state management, screen shake
 │   ├── Input.js        # Keyboard input handling
-│   ├── Player.js       # Player character logic
+│   ├── Player.js       # Player character with super moves
 │   ├── Boss.js         # Base boss class
-│   ├── FlowerBoss.js   # Flower Fiend implementation
-│   ├── Bullet.js       # Projectile system
-│   └── ParticleSystem.js # Visual effects
+│   ├── FlowerBoss.js   # Flower Fiend with all attacks
+│   ├── Bullet.js       # Projectile system (3 types)
+│   ├── ParticleSystem.js # Visual effects
+│   └── SoundSystem.js  # Web Audio API sound effects
 └── serve.py            # Development server
 ```
 
@@ -140,19 +152,38 @@ The code is modular and easy to extend:
 
 ### Code Features
 - Particle system for explosions and effects
-- State machine for boss phases
-- Collision detection system
-- Animation framework
+- State machine for boss phases with transitions
+- Frame-based attack timing (no setTimeout issues)
+- Comprehensive collision detection (bullets, hitboxes, contact damage)
+- Animation framework with sprite scaling
 - Input abstraction layer
+- **Screen shake** on impacts
+- **Pause system**
+- **Three weapon types** with switching
+- **Three-level super move system**
+- **Web Audio API** synthesized sound effects
+
+## Recent Improvements (v2.0)
+
+### ✅ Implemented
+- [x] **Weapon switching system** (Q/E keys)
+- [x] **Super moves** (3 levels with different effects)
+- [x] **Screen shake** on boss hits and mega attacks
+- [x] **Pause functionality** (ESC key)
+- [x] **Fixed boss attack timing** (frame-based instead of setTimeout)
+- [x] **Root spike hitboxes** - Actually damage the player now
+- [x] **Mega chomp attack** - Full screen-sweeping implementation
+- [x] **Petal shield contact damage** - Rotating petals hurt on touch
+- [x] **Sound system foundation** - Web Audio API synthesized effects
 
 ## Future Enhancements
 
 Potential additions:
 - [ ] Multiple boss battles
-- [ ] Weapon switching system
 - [ ] Shop and upgrade system
-- [ ] Sound effects and music
+- [ ] Full sound integration (BGM + all SFX)
 - [ ] Sprite-based graphics
+- [ ] Boss intro/outro cinematics
 - [ ] Mobile touch controls
 - [ ] Leaderboard system
 - [ ] Additional difficulty modes

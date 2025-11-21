@@ -118,6 +118,18 @@ export class FlowerBoss extends Boss {
         this.petalShieldActive = false;
         this.petalShieldTimer = 0;
         this.petals = [];
+
+        // Multi-shot attacks (replaces setTimeout)
+        this.multiShotAttack = null; // {type, count, current, interval, timer, targetX, targetY}
+
+        // Root spikes
+        this.rootSpikes = [];
+
+        // Mega chomp
+        this.isChomping = false;
+        this.chompTimer = 0;
+        this.chompWarningTimer = 0;
+        this.chompHitbox = null;
     }
 
     update(player, particleSystem) {
@@ -164,6 +176,9 @@ export class FlowerBoss extends Boss {
 
         this.updateBullets();
         this.updatePetalShield();
+        this.updateMultiShotAttack(player);
+        this.updateRootSpikes();
+        this.updateMegaChomp(player);
     }
 
     startPhaseTransition(newPhase) {
@@ -315,28 +330,28 @@ export class FlowerBoss extends Boss {
     }
 
     homingSeeds(player) {
-        for (let i = 0; i < 4; i++) {
-            setTimeout(() => {
-                const angle = Math.atan2(player.y - this.y, player.x - this.x);
-                const speed = 4;
-                const vx = Math.cos(angle) * speed;
-                const vy = Math.sin(angle) * speed;
-
-                const bullet = new Bullet(this.x + 40, this.y, vx, vy, 1, false, '#FF69B4');
-                bullet.canParry = true;
-                bullet.radius = 12;
-                this.bullets.push(bullet);
-            }, i * 200);
-        }
+        this.multiShotAttack = {
+            type: 'homing',
+            count: 4,
+            current: 0,
+            interval: 12, // frames (200ms at 60fps)
+            timer: 0,
+            targetX: player.x,
+            targetY: player.y
+        };
     }
 
     rootSpikes() {
-        // Create ground spikes that travel horizontally
+        // Create ground spikes that travel horizontally with hitboxes
         for (let i = 0; i < 10; i++) {
-            setTimeout(() => {
-                const x = 100 + i * 120;
-                this.particleSystem.createExplosion(x, 640, '#8B4513', 8);
-            }, i * 100);
+            this.rootSpikes.push({
+                x: 100 + i * 120,
+                y: 640,
+                spawnTimer: i * 6, // 100ms intervals at 60fps
+                active: false,
+                lifetime: 30, // Active for 0.5 seconds
+                age: 0
+            });
         }
     }
 
@@ -383,30 +398,22 @@ export class FlowerBoss extends Boss {
     }
 
     rapidSeedBarrage(player) {
-        for (let i = 0; i < 12; i++) {
-            setTimeout(() => {
-                const angle = Math.atan2(player.y - this.y, player.x - this.x);
-                const speed = 7;
-                const vx = Math.cos(angle) * speed;
-                const vy = Math.sin(angle) * speed;
-
-                const bullet = new Bullet(this.x + 40, this.y, vx, vy, 1, false, '#8B4513');
-
-                // Every 3rd seed is parryable
-                if (i % 3 === 0) {
-                    bullet.canParry = true;
-                    bullet.color = '#FF69B4';
-                }
-
-                this.bullets.push(bullet);
-            }, i * 100);
-        }
+        this.multiShotAttack = {
+            type: 'rapid',
+            count: 12,
+            current: 0,
+            interval: 6, // frames (100ms at 60fps)
+            timer: 0,
+            targetX: player.x,
+            targetY: player.y
+        };
     }
 
     megaChomp(player) {
-        // Boss extends across screen
-        // This is a visual threat - implementation simplified
-        this.particleSystem.createExplosion(this.x, this.y, '#32CD32', 20);
+        // Boss extends neck across screen with actual hitbox
+        this.chompWarningTimer = 120; // 2 second warning
+        this.isChomping = false;
+        this.chompTimer = 0;
     }
 
     spawnMinions() {
@@ -415,6 +422,116 @@ export class FlowerBoss extends Boss {
                 const x = 200 + i * 250;
                 const flytrap = new VenusFlytrap(x, 640);
                 this.flytraps.push(flytrap);
+            }
+        }
+    }
+
+    updateMultiShotAttack(player) {
+        if (!this.multiShotAttack) return;
+
+        const attack = this.multiShotAttack;
+        attack.timer++;
+
+        if (attack.timer >= attack.interval) {
+            attack.timer = 0;
+            attack.current++;
+
+            // Fire bullet based on attack type
+            if (attack.type === 'homing') {
+                const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                const speed = 4;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+
+                const bullet = new Bullet(this.x + 40, this.y, vx, vy, 1, false, '#FF69B4');
+                bullet.canParry = true;
+                bullet.radius = 12;
+                this.bullets.push(bullet);
+            } else if (attack.type === 'rapid') {
+                const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                const speed = 7;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+
+                const bullet = new Bullet(this.x + 40, this.y, vx, vy, 1, false, '#8B4513');
+
+                // Every 3rd seed is parryable
+                if (attack.current % 3 === 0) {
+                    bullet.canParry = true;
+                    bullet.color = '#FF69B4';
+                }
+
+                this.bullets.push(bullet);
+            }
+
+            // Check if attack complete
+            if (attack.current >= attack.count) {
+                this.multiShotAttack = null;
+            }
+        }
+    }
+
+    updateRootSpikes() {
+        for (let i = this.rootSpikes.length - 1; i >= 0; i--) {
+            const spike = this.rootSpikes[i];
+
+            if (!spike.active) {
+                spike.spawnTimer--;
+                if (spike.spawnTimer <= 0) {
+                    spike.active = true;
+                    this.particleSystem.createExplosion(spike.x, spike.y, '#8B4513', 8);
+                }
+            } else {
+                spike.age++;
+                if (spike.age >= spike.lifetime) {
+                    this.rootSpikes.splice(i, 1);
+                }
+            }
+        }
+    }
+
+    updateMegaChomp(player) {
+        if (this.chompWarningTimer > 0) {
+            this.chompWarningTimer--;
+
+            // Flash warning
+            if (this.chompWarningTimer % 20 < 10) {
+                this.particleSystem.createExplosion(this.x, this.y, '#32CD32', 3);
+            }
+
+            if (this.chompWarningTimer === 0) {
+                this.isChomping = true;
+                this.chompTimer = 40; // Chomp lasts 40 frames
+
+                // Create sweeping hitbox
+                this.chompHitbox = {
+                    startY: 100,
+                    currentY: 100,
+                    endY: 600,
+                    speed: 12.5, // (600-100)/40 = 12.5 pixels per frame
+                    width: 1280,
+                    height: 80
+                };
+            }
+        }
+
+        if (this.isChomping) {
+            this.chompTimer--;
+            this.chompHitbox.currentY += this.chompHitbox.speed;
+
+            // Create visual effects
+            if (this.chompTimer % 5 === 0) {
+                this.particleSystem.createExplosion(
+                    640,
+                    this.chompHitbox.currentY,
+                    '#32CD32',
+                    10
+                );
+            }
+
+            if (this.chompTimer <= 0) {
+                this.isChomping = false;
+                this.chompHitbox = null;
             }
         }
     }
@@ -542,6 +659,71 @@ export class FlowerBoss extends Boss {
 
         // Draw bullets
         this.drawBullets(ctx);
+
+        // Draw root spikes
+        this.rootSpikes.forEach(spike => {
+            if (spike.active) {
+                ctx.save();
+                ctx.fillStyle = '#8B4513';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+
+                // Draw spike shape
+                ctx.beginPath();
+                ctx.moveTo(spike.x, spike.y);
+                ctx.lineTo(spike.x - 15, spike.y - 60);
+                ctx.lineTo(spike.x, spike.y - 80);
+                ctx.lineTo(spike.x + 15, spike.y - 60);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        });
+
+        // Draw mega chomp
+        if (this.isChomping && this.chompHitbox) {
+            ctx.save();
+
+            // Draw sweeping danger zone
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+            ctx.fillRect(
+                0,
+                this.chompHitbox.currentY - this.chompHitbox.height / 2,
+                this.chompHitbox.width,
+                this.chompHitbox.height
+            );
+
+            // Draw chomping mouth
+            ctx.strokeStyle = '#32CD32';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(0, this.chompHitbox.currentY);
+            ctx.lineTo(1280, this.chompHitbox.currentY);
+            ctx.stroke();
+
+            // Draw teeth
+            for (let i = 0; i < 20; i++) {
+                const x = i * 64;
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.moveTo(x, this.chompHitbox.currentY - 20);
+                ctx.lineTo(x + 10, this.chompHitbox.currentY);
+                ctx.lineTo(x + 20, this.chompHitbox.currentY - 20);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(x, this.chompHitbox.currentY + 20);
+                ctx.lineTo(x + 10, this.chompHitbox.currentY);
+                ctx.lineTo(x + 20, this.chompHitbox.currentY + 20);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
     }
 
     onDeath(particleSystem) {

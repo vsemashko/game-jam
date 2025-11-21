@@ -2,6 +2,7 @@ import { Input } from './Input.js';
 import { Player } from './Player.js';
 import { FlowerBoss } from './FlowerBoss.js';
 import { ParticleSystem } from './ParticleSystem.js';
+import { SoundSystem } from './SoundSystem.js';
 
 class Game {
     constructor() {
@@ -12,6 +13,7 @@ class Game {
 
         this.input = new Input();
         this.particleSystem = new ParticleSystem();
+        this.soundSystem = new SoundSystem();
 
         this.gameState = 'start'; // 'start', 'playing', 'victory', 'gameover'
         this.startTime = 0;
@@ -29,6 +31,14 @@ class Game {
         // Game stats
         this.parriesPerformed = 0;
         this.superMovesUsed = 0;
+
+        // Screen shake
+        this.screenShake = 0;
+        this.shakeX = 0;
+        this.shakeY = 0;
+
+        // Pause
+        this.isPaused = false;
 
         this.setupGame();
         this.setupUI();
@@ -80,6 +90,16 @@ class Game {
     }
 
     update() {
+        // Pause handling
+        if (this.gameState === 'playing' && this.input.isPressed('pause')) {
+            this.isPaused = !this.isPaused;
+        }
+
+        if (this.isPaused) {
+            this.input.update();
+            return;
+        }
+
         if (this.gameState === 'start') {
             if (this.input.isPressed('start')) {
                 this.startGame();
@@ -94,6 +114,16 @@ class Game {
             if (this.input.isPressed('start')) {
                 this.restartGame();
             }
+        }
+
+        // Update screen shake
+        if (this.screenShake > 0) {
+            this.shakeX = (Math.random() - 0.5) * this.screenShake;
+            this.shakeY = (Math.random() - 0.5) * this.screenShake;
+            this.screenShake--;
+        } else {
+            this.shakeX = 0;
+            this.shakeY = 0;
         }
 
         this.particleSystem.update();
@@ -140,6 +170,13 @@ class Game {
     }
 
     checkCollisions() {
+        // Super beam vs Boss
+        if (this.player.superBeamActive && this.player.superBeamHit) {
+            this.boss.takeDamage(10, this.particleSystem);
+            this.screenShake = 15;
+            this.player.superBeamHit = false; // Only hit once
+        }
+
         // Player bullets vs Boss
         for (let i = this.player.bullets.length - 1; i >= 0; i--) {
             const bullet = this.player.bullets[i];
@@ -149,6 +186,7 @@ class Game {
                 this.boss.takeDamage(bullet.damage, this.particleSystem);
                 this.player.addSuper(5);
                 this.player.bullets.splice(i, 1);
+                this.screenShake = 3;
                 continue;
             }
 
@@ -213,6 +251,48 @@ class Game {
                 }
             }
         });
+
+        // Root spikes vs Player
+        if (!this.player.invulnerable && !this.player.isDashing) {
+            this.boss.rootSpikes.forEach(spike => {
+                if (spike.active) {
+                    const dx = Math.abs(spike.x - this.player.x);
+                    const dy = this.player.y + this.player.height - (spike.y - 80);
+
+                    if (dx < 20 && dy > 0 && dy < 80) {
+                        this.player.takeDamage(1);
+                    }
+                }
+            });
+        }
+
+        // Mega chomp vs Player
+        if (!this.player.invulnerable && !this.player.isDashing && this.boss.chompHitbox) {
+            const playerY = this.player.y + this.player.height / 2;
+            const chompY = this.boss.chompHitbox.currentY;
+            const halfHeight = this.boss.chompHitbox.height / 2;
+
+            if (playerY > chompY - halfHeight && playerY < chompY + halfHeight) {
+                this.player.takeDamage(1);
+                this.screenShake = 10;
+            }
+        }
+
+        // Petal shield contact damage
+        if (!this.player.invulnerable && !this.player.isDashing && this.boss.petalShieldActive) {
+            this.boss.petals.forEach(petal => {
+                const petalX = this.boss.x + Math.cos(petal.angle) * petal.distance;
+                const petalY = this.boss.y + Math.sin(petal.angle) * petal.distance;
+
+                const dx = petalX - this.player.x;
+                const dy = petalY - (this.player.y + this.player.height / 2);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 40) {
+                    this.player.takeDamage(1);
+                }
+            });
+        }
     }
 
     checkBulletBossCollision(bullet, boss) {
@@ -289,6 +369,10 @@ class Game {
         this.ctx.fillStyle = '#87CEEB';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
+        // Apply screen shake
+        this.ctx.save();
+        this.ctx.translate(this.shakeX, this.shakeY);
+
         // Draw background layers
         this.drawBackground();
 
@@ -301,6 +385,23 @@ class Game {
 
         // Draw ground
         this.drawGround();
+
+        // Restore after screen shake
+        this.ctx.restore();
+
+        // Draw pause overlay
+        if (this.isPaused) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            this.ctx.fillStyle = '#ffeb3b';
+            this.ctx.font = 'bold 72px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('PAUSED', this.canvas.width / 2, this.canvas.height / 2);
+
+            this.ctx.font = '24px Arial';
+            this.ctx.fillText('Press ESC to resume', this.canvas.width / 2, this.canvas.height / 2 + 60);
+        }
     }
 
     drawBackground() {
