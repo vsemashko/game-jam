@@ -17,7 +17,8 @@ export class Input {
             pause: ['Escape'],
             start: ['Space'],
             weaponPrev: ['KeyQ'],
-            weaponNext: ['KeyE']
+            weaponNext: ['KeyE'],
+            help: ['KeyH']
         };
 
         this.setupEventListeners();

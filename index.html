@@ -47,6 +47,14 @@
         </div>
         <div id="level-select-screen" style="display: none;">
             <h1>SELECT LEVEL</h1>
+            <div id="difficulty-selector">
+                <label>DIFFICULTY:</label>
+                <div class="difficulty-buttons">
+                    <button class="difficulty-btn active" data-difficulty="simple">SIMPLE</button>
+                    <button class="difficulty-btn" data-difficulty="regular">REGULAR</button>
+                    <button class="difficulty-btn" data-difficulty="expert">EXPERT</button>
+                </div>
+            </div>
             <div id="level-buttons">
                 <div class="level-card" id="level-1-card">
                     <h2>LEVEL 1</h2>
@@ -75,6 +83,44 @@
             <h1 style="color: #ff6b6b;">GAME OVER</h1>
             <div id="gameover-stats"></div>
             <p>Press SPACE to try again</p>
+        </div>
+        <div id="help-overlay" style="display: none;">
+            <div class="help-content">
+                <h2>CONTROLS & MECHANICS</h2>
+                <div class="help-columns">
+                    <div class="help-column">
+                        <h3>Movement</h3>
+                        <p><kbd>WASD</kbd> or <kbd>Arrow Keys</kbd> - Move</p>
+                        <p><kbd>K</kbd> or <kbd>X</kbd> - Jump (Double Jump)</p>
+                        <p><kbd>L</kbd> or <kbd>C</kbd> - Dash</p>
+
+                        <h3>Combat</h3>
+                        <p><kbd>J</kbd> or <kbd>Z</kbd> - Shoot</p>
+                        <p><kbd>Q</kbd> / <kbd>E</kbd> - Switch Weapons</p>
+                        <p><kbd>I</kbd> or <kbd>V</kbd> - Super Move</p>
+
+                        <h3>System</h3>
+                        <p><kbd>ESC</kbd> - Pause Game</p>
+                        <p><kbd>H</kbd> - Toggle Help</p>
+                    </div>
+                    <div class="help-column">
+                        <h3>Weapons</h3>
+                        <p><strong>Peashooter:</strong> Rapid-fire, medium damage</p>
+                        <p><strong>Spread:</strong> Wide coverage, close range</p>
+                        <p><strong>Charge:</strong> Hold to charge, high damage</p>
+
+                        <h3>Super Moves</h3>
+                        <p><strong>Level I (100):</strong> Invincibility dash + bullets</p>
+                        <p><strong>Level II (200):</strong> Energy wave explosion</p>
+                        <p><strong>Level III (300):</strong> Massive beam attack</p>
+
+                        <h3>Parrying</h3>
+                        <p>Press <kbd>Jump</kbd> near <span style="color: #ff69b4;">PINK</span> projectiles to parry!</p>
+                        <p>Parrying fills your super meter quickly.</p>
+                    </div>
+                </div>
+                <p class="help-footer">Press <kbd>H</kbd> to close</p>
+            </div>
         </div>
     </div>
     <script type="module" src="js/main.js"></script>

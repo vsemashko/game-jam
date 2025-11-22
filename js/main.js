@@ -3,6 +3,7 @@ import { Player } from './Player.js';
 import { FlowerBoss } from './FlowerBoss.js';
 import { DragonBoss } from './DragonBoss.js';
 import { Platform } from './Platform.js';
+import { Pickup } from './Pickup.js';
 import { ParticleSystem } from './ParticleSystem.js';
 import { SoundSystem } from './SoundSystem.js';
 
@@ -31,13 +32,23 @@ class Game {
         this.levelSelectScreen = document.getElementById('level-select-screen');
         this.victoryScreen = document.getElementById('victory-screen');
         this.gameoverScreen = document.getElementById('gameover-screen');
+        this.helpOverlay = document.getElementById('help-overlay');
 
         // Level system
         this.currentLevel = 1;
         this.platforms = [];
+        this.pickups = [];
         this.levels = {
             1: { name: 'Flower Fiend', bossClass: FlowerBoss, hasPlatforms: false },
             2: { name: 'Grim Matchstick', bossClass: DragonBoss, hasPlatforms: true }
+        };
+
+        // Difficulty system
+        this.difficulty = 'simple'; // 'simple', 'regular', 'expert'
+        this.difficultyModifiers = {
+            simple: { hpMultiplier: 0.75, damageMultiplier: 0.75, speedMultiplier: 0.85 },
+            regular: { hpMultiplier: 1.0, damageMultiplier: 1.0, speedMultiplier: 1.0 },
+            expert: { hpMultiplier: 1.5, damageMultiplier: 1.25, speedMultiplier: 1.2 }
         };
 
         // Game stats
@@ -54,6 +65,9 @@ class Game {
         // Pause
         this.isPaused = false;
 
+        // Help overlay
+        this.helpVisible = false;
+
         this.setupGame();
         this.setupUI();
         this.gameLoop();
@@ -66,13 +80,30 @@ class Game {
         const levelData = this.levels[this.currentLevel];
         this.boss = new levelData.bossClass(this.particleSystem);
 
+        // Apply difficulty modifiers
+        this.applyDifficultyModifiers();
+
         // Setup platforms for levels that need them
         this.platforms = [];
         if (levelData.hasPlatforms) {
             this.setupPlatforms();
         }
 
+        // Reset pickups
+        this.pickups = [];
+
         this.bossNameUI.textContent = this.boss.name;
+    }
+
+    applyDifficultyModifiers() {
+        const modifiers = this.difficultyModifiers[this.difficulty];
+
+        // Adjust boss health
+        this.boss.maxHealth = Math.round(this.boss.maxHealth * modifiers.hpMultiplier);
+        this.boss.health = this.boss.maxHealth;
+
+        // Store modifiers for runtime use
+        this.boss.difficultyModifiers = modifiers;
     }
 
     setupPlatforms() {
@@ -88,6 +119,16 @@ class Game {
     setupLevelSelect() {
         // Load progress from localStorage
         this.loadProgress();
+
+        // Add click handlers for difficulty buttons
+        const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+        difficultyButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                difficultyButtons.forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                this.difficulty = e.target.getAttribute('data-difficulty');
+            });
+        });
 
         // Add click handlers for level buttons
         const levelButtons = document.querySelectorAll('.level-button');
@@ -113,8 +154,14 @@ class Game {
         } else {
             this.progress = {
                 unlockedLevels: [1],
-                grades: {}
+                grades: {},
+                bestAttempts: {}  // Track best attempts per level
             };
+        }
+
+        // Ensure bestAttempts exists (for backward compatibility)
+        if (!this.progress.bestAttempts) {
+            this.progress.bestAttempts = {};
         }
     }
 
@@ -199,6 +246,18 @@ class Game {
     }
 
     update() {
+        // Help overlay toggle (works in any state)
+        if (this.input.isPressed('help')) {
+            this.helpVisible = !this.helpVisible;
+            this.helpOverlay.style.display = this.helpVisible ? 'flex' : 'none';
+        }
+
+        // If help is visible, don't process other inputs
+        if (this.helpVisible) {
+            this.input.update();
+            return;
+        }
+
         // Pause handling
         if (this.gameState === 'playing' && this.input.isPressed('pause')) {
             this.isPaused = !this.isPaused;
@@ -259,6 +318,27 @@ class Game {
         // Update platforms
         this.platforms.forEach(platform => platform.update());
 
+        // Update pickups
+        for (let i = this.pickups.length - 1; i >= 0; i--) {
+            this.pickups[i].update();
+
+            // Check player collision
+            if (this.pickups[i].checkCollision(this.player)) {
+                if (this.pickups[i].type === 'health' && this.player.health < this.player.maxHealth) {
+                    this.player.health++;
+                    this.updatePlayerHealthUI();
+                    this.pickups.splice(i, 1);
+                    if (this.soundSystem.initialized) this.soundSystem.playJump(); // Reuse jump sound
+                    continue;
+                }
+            }
+
+            // Remove if collected or expired
+            if (this.pickups[i].collected) {
+                this.pickups.splice(i, 1);
+            }
+        }
+
         // Update player (with platforms)
         this.player.update(this.input, this.platforms);
 
@@ -317,6 +397,11 @@ class Game {
                     flytrap.takeDamage(bullet.damage);
                     this.player.addSuper(3);
                     this.player.bullets.splice(i, 1);
+
+                    // Spawn health pickup on death (10% chance)
+                    if (flytrap.health <= 0 && Math.random() < 0.1) {
+                        this.pickups.push(new Pickup(flytrap.x, flytrap.y, 'health'));
+                    }
                     break;
                 }
             }
@@ -463,6 +548,11 @@ class Game {
                         this.player.bullets.splice(i, 1);
                         if (minion.dead) {
                             this.particleSystem.createExplosion(minion.x, minion.y, '#ddd', 15);
+
+                            // Spawn health pickup on death (10% chance)
+                            if (Math.random() < 0.1) {
+                                this.pickups.push(new Pickup(minion.x, minion.y, 'health'));
+                            }
                         }
                         break;
                     }
@@ -609,12 +699,49 @@ class Game {
         // Calculate stats
         const timeTaken = (this.endTime - this.startTime) / 1000;
         const bossHPRemaining = Math.round((this.boss.health / this.boss.maxHealth) * 100);
+        const damageDealt = 100 - bossHPRemaining;
+        const currentPhase = this.boss.phase;
+
+        // Get or initialize best attempt for this level
+        if (!this.progress.bestAttempts[this.currentLevel]) {
+            this.progress.bestAttempts[this.currentLevel] = {
+                highestPhase: 0,
+                lowestBossHP: 100,
+                attempts: 0
+            };
+        }
+
+        const bestAttempt = this.progress.bestAttempts[this.currentLevel];
+        bestAttempt.attempts++;
+
+        // Update best records
+        let newRecord = false;
+        if (currentPhase > bestAttempt.highestPhase) {
+            bestAttempt.highestPhase = currentPhase;
+            newRecord = true;
+        }
+        if (bossHPRemaining < bestAttempt.lowestBossHP) {
+            bestAttempt.lowestBossHP = bossHPRemaining;
+            newRecord = true;
+        }
+
+        this.saveProgress();
 
         // Display results
+        const recordText = newRecord ? '<p style="color: #4ecdc4; font-size: 20px; margin: 10px 0;">🌟 NEW RECORD! 🌟</p>' : '';
+
         document.getElementById('gameover-stats').innerHTML = `
             <p style="font-size: 20px; margin: 30px 0;">You survived for ${timeTaken.toFixed(1)} seconds</p>
-            <p style="font-size: 18px; margin: 10px 0;">Boss HP Remaining: ${bossHPRemaining}%</p>
-            <p style="font-size: 18px; margin: 10px 0;">Parries Performed: ${this.parriesPerformed}</p>
+            <p style="font-size: 18px; margin: 10px 0;">Damage Dealt: ${damageDealt}%</p>
+            <p style="font-size: 18px; margin: 10px 0;">Highest Phase: ${currentPhase}/3</p>
+            <p style="font-size: 18px; margin: 10px 0;">Parries: ${this.parriesPerformed}</p>
+            ${recordText}
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #8B4513;">
+                <p style="font-size: 16px; color: #ccc;">BEST ATTEMPT:</p>
+                <p style="font-size: 14px; color: #ccc;">Highest Phase: ${bestAttempt.highestPhase}/3</p>
+                <p style="font-size: 14px; color: #ccc;">Best Damage: ${100 - bestAttempt.lowestBossHP}%</p>
+                <p style="font-size: 14px; color: #ccc;">Total Attempts: ${bestAttempt.attempts}</p>
+            </div>
             <p style="font-size: 16px; margin: 30px 0; color: #ffeb3b;">Keep practicing! You'll get it!</p>
         `;
     }
@@ -644,6 +771,9 @@ class Game {
         if (this.gameState === 'playing' || this.gameState === 'victory' || this.gameState === 'gameover') {
             // Draw platforms first
             this.platforms.forEach(platform => platform.draw(this.ctx));
+
+            // Draw pickups
+            this.pickups.forEach(pickup => pickup.draw(this.ctx));
 
             this.boss.draw(this.ctx);
             this.player.draw(this.ctx);
