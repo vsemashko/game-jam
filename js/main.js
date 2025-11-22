@@ -31,7 +31,6 @@ class Game {
 
         // Game stats
         this.parriesPerformed = 0;
-        this.superMovesUsed = 0;
 
         // Screen shake
         this.screenShake = 0;
@@ -88,6 +87,13 @@ class Game {
             'charge': 'CHARGE'
         };
         this.weaponDisplayUI.textContent = weaponNames[this.player.currentWeapon] || 'PEASHOOTER';
+
+        // Add flash effect when switching weapons
+        if (this.player.weaponSwitchFlash > 0) {
+            this.weaponDisplayUI.classList.add('flash');
+        } else {
+            this.weaponDisplayUI.classList.remove('flash');
+        }
     }
 
     update() {
@@ -141,17 +147,14 @@ class Game {
         this.startScreen.style.display = 'none';
         this.startTime = Date.now();
         this.parriesPerformed = 0;
-        this.superMovesUsed = 0;
     }
 
     updatePlaying() {
         // Update player
         this.player.update(this.input);
 
-        // Update boss
-        if (!this.boss.dead) {
-            this.boss.update(this.player, this.particleSystem);
-        }
+        // Update boss (continues even when dead for death animation)
+        this.boss.update(this.player, this.particleSystem);
 
         // Check collisions
         this.checkCollisions();
@@ -160,6 +163,7 @@ class Game {
         this.updatePlayerHealthUI();
         this.updateBossHealthUI();
         this.updateSuperMeterUI();
+        this.updateWeaponUI();
 
         // Check win condition
         if (this.boss.dead && this.gameState === 'playing') {

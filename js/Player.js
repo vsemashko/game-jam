@@ -38,6 +38,7 @@ export class Player {
         // Super meter
         this.superMeter = 0;
         this.maxSuper = 300;
+        this.superMovesUsed = 0;
 
         // Weapon system
         this.currentWeapon = 'peashooter'; // 'peashooter', 'spread', 'charge'
@@ -64,6 +65,11 @@ export class Player {
         this.superBeamActive = false;
         this.superBeamTimer = 0;
         this.superBeamHit = false;
+
+        // Super Level I energy bullets
+        this.superDashBulletTimer = 0;
+        this.superDashBulletsSpawned = 0;
+        this.superDashBulletsMax = 10;
     }
 
     update(input) {
@@ -272,6 +278,28 @@ export class Player {
                 this.superBeamHit = false;
             }
         }
+
+        // Super Level I energy bullets (frame-based)
+        if (this.superDashBulletsSpawned < this.superDashBulletsMax && this.isDashing) {
+            this.superDashBulletTimer++;
+            if (this.superDashBulletTimer >= 2) { // Every 2 frames (~30ms at 60fps)
+                this.superDashBulletTimer = 0;
+                this.superDashBulletsSpawned++;
+
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 8;
+                const bullet = new Bullet(
+                    this.x,
+                    this.y + this.height / 2,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    2,
+                    true,
+                    '#4ecdc4'
+                );
+                this.bullets.push(bullet);
+            }
+        }
     }
 
     updateAnimation() {
@@ -348,6 +376,7 @@ export class Player {
         if (this.superMeter < cost) return;
 
         this.superMeter -= cost;
+        this.superMovesUsed++;
         if (this.soundSystem) this.soundSystem.playSuper(level);
 
         if (level === 1) {
@@ -359,25 +388,9 @@ export class Player {
             this.dashDir = { x: this.facing, y: 0 };
             this.dashCooldown = 0; // No cooldown after super dash
 
-            // Create energy bullets during dash
-            for (let i = 0; i < 10; i++) {
-                setTimeout(() => {
-                    if (this.isDashing) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const speed = 8;
-                        const bullet = new Bullet(
-                            this.x,
-                            this.y + this.height / 2,
-                            Math.cos(angle) * speed,
-                            Math.sin(angle) * speed,
-                            2,
-                            true,
-                            '#4ecdc4'
-                        );
-                        this.bullets.push(bullet);
-                    }
-                }, i * 30);
-            }
+            // Reset energy bullet counters (frame-based spawning in updateCooldowns)
+            this.superDashBulletTimer = 0;
+            this.superDashBulletsSpawned = 0;
         } else if (level === 2) {
             // Level II: Screen-clearing energy wave
             this.particleSystem.createExplosion(this.x, this.y + this.height / 2, '#4ecdc4', 50);

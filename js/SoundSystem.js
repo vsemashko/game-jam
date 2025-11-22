@@ -209,25 +209,26 @@ export class SoundSystem {
     playVictory() {
         if (!this.enabled || !this.initialized) return;
 
-        // Play ascending victory notes
+        // Play ascending victory notes using Web Audio API scheduling
         const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        const noteDelay = 0.15; // 150ms between notes
+
         notes.forEach((freq, i) => {
-            setTimeout(() => {
-                const osc = this.audioContext.createOscillator();
-                const gain = this.audioContext.createGain();
+            const startTime = this.audioContext.currentTime + (i * noteDelay);
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
 
-                osc.connect(gain);
-                gain.connect(this.sfxGainNode);
+            osc.connect(gain);
+            gain.connect(this.sfxGainNode);
 
-                osc.frequency.value = freq;
-                osc.type = 'sine';
+            osc.frequency.value = freq;
+            osc.type = 'sine';
 
-                gain.gain.setValueAtTime(0.5, this.audioContext.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+            gain.gain.setValueAtTime(0.5, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.5);
 
-                osc.start();
-                osc.stop(this.audioContext.currentTime + 0.5);
-            }, i * 150);
+            osc.start(startTime);
+            osc.stop(startTime + 0.5);
         });
     }
 

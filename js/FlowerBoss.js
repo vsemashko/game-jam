@@ -135,9 +135,28 @@ export class FlowerBoss extends Boss {
         this.introActive = true;
         this.introTimer = 120; // 2 seconds
         this.introY = 800; // Start below screen
+
+        // Death animation (frame-based, replaces setTimeout)
+        this.deathExplosionsSpawned = 0;
+        this.deathExplosionsMax = 100;
+        this.deathExplosionTimer = 0;
     }
 
     update(player, particleSystem) {
+        // Handle death animation (frame-based)
+        if (this.dead && this.deathExplosionsSpawned < this.deathExplosionsMax) {
+            this.deathExplosionTimer++;
+            if (this.deathExplosionTimer >= 1) { // Every frame (~20ms at 60fps)
+                this.deathExplosionTimer = 0;
+                this.deathExplosionsSpawned++;
+
+                const x = this.x + (Math.random() - 0.5) * 100;
+                const y = this.y + (Math.random() - 0.5) * 100;
+                particleSystem.createExplosion(x, y, '#FFD700', 10);
+            }
+            return;
+        }
+
         // Handle intro animation
         if (this.introActive) {
             this.introTimer--;
@@ -749,13 +768,8 @@ export class FlowerBoss extends Boss {
     onDeath(particleSystem) {
         super.onDeath(particleSystem);
 
-        // Create dramatic death explosion
-        for (let i = 0; i < 100; i++) {
-            setTimeout(() => {
-                const x = this.x + (Math.random() - 0.5) * 100;
-                const y = this.y + (Math.random() - 0.5) * 100;
-                particleSystem.createExplosion(x, y, '#FFD700', 10);
-            }, i * 20);
-        }
+        // Reset death animation counters (frame-based spawning in update method)
+        this.deathExplosionsSpawned = 0;
+        this.deathExplosionTimer = 0;
     }
 }

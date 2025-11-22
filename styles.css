@@ -135,6 +135,14 @@ body {
     color: #fff;
     font-size: 16px;
     text-shadow: 1px 1px 0 #000;
+    transition: all 0.1s ease;
+}
+
+#weapon-display.flash {
+    background: rgba(255, 235, 59, 0.5);
+    border-color: #fff;
+    box-shadow: 0 0 20px #ffeb3b;
+    transform: scale(1.1);
 }
 
 #super-meter {
