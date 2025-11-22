@@ -1,6 +1,6 @@
-# Cuphead-Inspired Boss Rush Game
+# Cuphead-Inspired Boss Rush Game (v3.3)
 
-A browser-based 2D boss battle game inspired by Cuphead's run-and-gun mechanics and 1930s rubber hose animation aesthetic.
+A browser-based 2D boss battle game inspired by Cuphead's run-and-gun mechanics and 1930s rubber hose animation aesthetic. Features 2 complete boss battles with difficulty modes, combo system, and extensive polish.
 
 ## Features
 
@@ -8,12 +8,15 @@ A browser-based 2D boss battle game inspired by Cuphead's run-and-gun mechanics 
 - **8-directional movement** (WASD / Arrow Keys)
 - **Continuous shooting** with multiple weapon types
 - **Double jump** with height control
-- **Dash** with invincibility frames
+- **Dash** with invincibility frames and trail effects
 - **Parry system** - Jump on pink objects to gain super meter and bounce
 - **Super meter** - Fill by dealing damage and parrying
 - **3-Level Super Moves** - Use stored super meter for devastating attacks
-- **Weapon Switching** - Cycle through all weapons during battle
-- **Pause System** - Pause anytime during gameplay
+- **Weapon Switching** - Cycle through all weapons during battle (Q/E)
+- **Combo System** - Build combos by hitting enemies for score multipliers
+- **Health Pickups** - Enemies drop hearts to restore health
+- **Pause System** - Pause anytime during gameplay (ESC)
+- **Tutorial/Help** - Press H anytime for control reference
 
 ### Weapons
 - **Peashooter**: Default rapid-fire straight shots
@@ -25,7 +28,23 @@ A browser-based 2D boss battle game inspired by Cuphead's run-and-gun mechanics 
 - **Level II (200 meter)**: Screen-clearing energy wave
 - **Level III (300 meter)**: Massive energy beam attack
 
-### First Boss: "Cagney Carnation" (Flower Fiend)
+### Difficulty Modes
+- **Simple**: 150% health, enemies deal 50% damage, slower patterns
+- **Regular**: Standard balanced difficulty
+- **Expert**: 75% health, enemies deal 150% damage, faster patterns
+
+### Combo & Scoring System
+- **Build Combos**: Hit enemies consecutively to increase combo counter
+- **Score Multipliers**:
+  - 5+ combo: 1.5x points
+  - 10+ combo: 2.0x points
+  - 20+ combo: 3.0x points
+- **Combo Breaks**: Miss or take damage to reset combo
+- **Grade Bonuses**: High scores improve final grade
+
+## Boss Battles
+
+### Level 1: "Cagney Carnation" (Flower Fiend)
 
 A three-phase boss battle featuring:
 
@@ -46,6 +65,39 @@ A three-phase boss battle featuring:
 - Multiple minions spawned simultaneously
 - Desperation mode below 10% HP with overlapping attacks
 
+### Level 2: "Grim Matchstick" (Dragon Boss)
+
+A four-phase platforming boss battle featuring:
+
+#### Phase 1: Warming Up (100-75% HP)
+- Dragon flies across screen breathing fire
+- Fireball projectiles with varying patterns
+- Cloud minions that shoot tracking bullets
+- Platform-based arena requiring vertical movement
+
+#### Phase 2: Heating Up (75-50% HP)
+- Increased movement speed
+- Faster fireball patterns
+- More aggressive cloud minions
+- Parryable fireballs (pink) appear in patterns
+
+#### Phase 3: Dragon's Fury (50-25% HP)
+- Multi-fireball bursts
+- Swooping dive attacks
+- Meteor shower from above (dodge between platforms)
+- Dense bullet patterns requiring precise movement
+
+#### Phase 4: Inferno (25-0% HP)
+- Maximum speed and aggression
+- Overlapping attack patterns
+- Continuous meteor showers
+- Desperation mode with screen-filling attacks
+
+**Special Mechanics**:
+- **Platforms**: Use vertical space to dodge attacks
+- **Cloud Minions**: Destroy them or use as parry targets
+- **Meteors**: Rain from top of screen, leave brief visual warnings
+
 ## Controls
 
 | Action | Keys |
@@ -58,6 +110,7 @@ A three-phase boss battle featuring:
 | Switch Weapon | Q / E |
 | Super Move | I / V |
 | Pause | ESC |
+| Help | H |
 | Start | Space |
 
 ## How to Play
@@ -91,9 +144,14 @@ If using VS Code:
 
 1. **Learn the Patterns**: Each boss attack has a telegraph - watch for visual cues
 2. **Parry Often**: Pink objects can be parried for super meter and extra mobility
-3. **Use Dash Wisely**: The dash gives invincibility frames but has a cooldown
-4. **Stay Mobile**: Constant movement is key to avoiding projectile patterns
-5. **Target Minions**: Venus flytraps can be destroyed for breathing room
+3. **Build Combos**: Keep hitting the boss without missing to multiply your score
+4. **Use Dash Wisely**: The dash gives invincibility frames but has a cooldown
+5. **Stay Mobile**: Constant movement is key to avoiding projectile patterns
+6. **Target Minions**: Destroy minions for breathing room and health pickups
+7. **Choose Your Difficulty**: Start with Simple mode to learn patterns
+8. **Platform Movement**: On Level 2, use platforms to dodge vertical attacks
+9. **Press H**: View the tutorial overlay anytime if you forget controls
+10. **Super Moves**: Save Level III supers for desperate situations or phase transitions
 
 ## Grading System
 
@@ -101,6 +159,8 @@ After defeating the boss, you'll receive a grade based on:
 - **Time**: How quickly you defeated the boss
 - **HP Remaining**: How much health you had left
 - **Parries**: Number of successful parries performed
+- **Score**: Total points earned from combos and hits
+- **Max Combo**: Highest combo chain achieved
 
 ### Grade Thresholds
 - **S Rank**: 70+ points (Perfect run)
@@ -108,6 +168,11 @@ After defeating the boss, you'll receive a grade based on:
 - **B Rank**: 45-59 points (Good)
 - **C Rank**: 30-44 points (Average)
 - **D Rank**: Below 30 points (Needs practice)
+
+### Stats Tracking
+- View your best runs for each boss
+- Track stats across difficulty modes
+- Compare scores and improvement over time
 
 ## Technical Details
 
@@ -128,15 +193,20 @@ game-jam/
 ├── index.html          # Main HTML file
 ├── styles.css          # Game styling and UI
 ├── js/
-│   ├── main.js         # Game loop, state management, screen shake
-│   ├── Input.js        # Keyboard input handling
+│   ├── main.js         # Game loop, state management, combos, parallax
+│   ├── Input.js        # Keyboard input handling with help overlay
 │   ├── Player.js       # Player character with super moves
 │   ├── Boss.js         # Base boss class
-│   ├── FlowerBoss.js   # Flower Fiend with all attacks
-│   ├── Bullet.js       # Projectile system (3 types)
-│   ├── ParticleSystem.js # Visual effects
+│   ├── FlowerBoss.js   # Level 1: Flower Fiend boss
+│   ├── DragonBoss.js   # Level 2: Dragon boss with platforms
+│   ├── CloudMinion.js  # Dragon boss minion enemies
+│   ├── Platform.js     # Platforming system for Level 2
+│   ├── Bullet.js       # Projectile system (3 weapon types)
+│   ├── Pickup.js       # Health pickup drops
+│   ├── ParticleSystem.js # Visual effects and trails
 │   └── SoundSystem.js  # Web Audio API sound effects
-└── serve.py            # Development server
+├── serve.py            # Development server
+└── PLAN.md             # Development roadmap and milestones
 ```
 
 ## Development
@@ -151,42 +221,77 @@ The code is modular and easy to extend:
 4. **Customize Visuals**: Modify draw methods or add sprite sheets
 
 ### Code Features
-- Particle system for explosions and effects
-- State machine for boss phases with transitions
+- Particle system for explosions, trails, and visual effects
+- State machine for boss phases with smooth transitions
 - Frame-based attack timing (no setTimeout issues)
-- Comprehensive collision detection (bullets, hitboxes, contact damage)
+- Comprehensive collision detection (bullets, hitboxes, platforms, contact damage)
 - Animation framework with sprite scaling
-- Input abstraction layer
-- **Screen shake** on impacts
-- **Pause system**
-- **Three weapon types** with switching
-- **Three-level super move system**
+- Input abstraction layer with help overlay
+- **Screen shake** with freeze frames for impact feedback
+- **Pause system** with visual dimming
+- **Three weapon types** with switching (Q/E keys)
+- **Three-level super move system** with visual indicators
+- **Combo system** with score multipliers (1.5x/2.0x/3.0x)
+- **Difficulty modes** with health/damage scaling
+- **Level selection** with stats persistence
+- **Health pickup system** with physics
+- **Platform collision** with priority ordering
+- **Parallax backgrounds** (6 layers)
+- **Tutorial overlay** accessible anytime (H key)
+- **Stats tracking** with localStorage persistence
 - **Web Audio API** synthesized sound effects
 
-## Recent Improvements (v2.0)
+## Version History
 
-### ✅ Implemented
+### v3.3 (Current) - Stats & Polish
+- [x] **Stats tracking system** with localStorage persistence
+- [x] **Combo system** with score multipliers (1.5x/2.0x/3.0x)
+- [x] **Max combo tracking** displayed on results screen
+- [x] **Enhanced grading** incorporating score and combos
+
+### v3.2 - Visual Polish
+- [x] **Parallax backgrounds** (6 scrolling layers)
+- [x] **Freeze frames** for hit-stop impact feedback
+- [x] **Enhanced particles** (boss-specific, weapon trails, charge effects)
+- [x] **Super meter indicators** with visual glow effects
+- [x] **Background music integration** hooks
+
+### v3.1 - Tutorial & Difficulty
+- [x] **Tutorial system** with help overlay (H key)
+- [x] **Difficulty modes** (Simple/Regular/Expert)
+- [x] **Health pickup system** with physics and lifetime
+- [x] **Difficulty scaling** for health, damage, and patterns
+
+### v3.0 - Dragon Boss Level
+- [x] **Level 2: Dragon Boss** (Grim Matchstick)
+- [x] **Platform system** with collision detection
+- [x] **Cloud minions** with tracking bullets
+- [x] **Meteor shower attack** with frame-based timing
+- [x] **Level selection screen** with progress tracking
+- [x] **Boss intro sequences**
+
+### v2.2 - Critical Bug Fixes
+- [x] **Fixed UI update bugs** (health bar, super meter)
+- [x] **Fixed super counter display** during gameplay
+- [x] **Fixed frame-based timing** issues throughout
+
+### v2.0 - Core Features
 - [x] **Weapon switching system** (Q/E keys)
 - [x] **Super moves** (3 levels with different effects)
 - [x] **Screen shake** on boss hits and mega attacks
 - [x] **Pause functionality** (ESC key)
-- [x] **Fixed boss attack timing** (frame-based instead of setTimeout)
-- [x] **Root spike hitboxes** - Actually damage the player now
-- [x] **Mega chomp attack** - Full screen-sweeping implementation
-- [x] **Petal shield contact damage** - Rotating petals hurt on touch
-- [x] **Sound system foundation** - Web Audio API synthesized effects
+- [x] **Sound system foundation** - Web Audio API
 
 ## Future Enhancements
 
-Potential additions:
-- [ ] Multiple boss battles
-- [ ] Shop and upgrade system
-- [ ] Full sound integration (BGM + all SFX)
+Post-v1.0 potential additions:
+- [ ] Additional boss battles (Milestone 5-7)
+- [ ] Meta progression system (coins, unlocks)
+- [ ] Full BGM integration
 - [ ] Sprite-based graphics
 - [ ] Boss intro/outro cinematics
 - [ ] Mobile touch controls
-- [ ] Leaderboard system
-- [ ] Additional difficulty modes
+- [ ] Online leaderboard system
 
 ## Performance
 

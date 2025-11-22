@@ -1,0 +1,44 @@
+# Netlify configuration for Cuphead-Inspired Boss Rush Game
+
+[build]
+  # No build process needed - static files only
+  publish = "."
+  command = ""
+
+[[headers]]
+  # Apply headers to all routes
+  for = "/*"
+  [headers.values]
+    # Security headers
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+    # Cache static assets
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  # Don't cache HTML
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  # Cache JavaScript files
+  for = "/js/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/javascript; charset=utf-8"
+
+[[redirects]]
+  # Redirect 404s to index (SPA behavior, though not strictly needed)
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+
+# Development settings
+[dev]
+  port = 8000
+  autoLaunch = true
