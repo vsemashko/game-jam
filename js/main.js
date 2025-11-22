@@ -1,6 +1,8 @@
 import { Input } from './Input.js';
 import { Player } from './Player.js';
 import { FlowerBoss } from './FlowerBoss.js';
+import { DragonBoss } from './DragonBoss.js';
+import { Platform } from './Platform.js';
 import { ParticleSystem } from './ParticleSystem.js';
 import { SoundSystem } from './SoundSystem.js';
 
@@ -26,11 +28,23 @@ class Game {
         this.superMeterUI = document.getElementById('super-fill');
         this.weaponDisplayUI = document.getElementById('weapon-display');
         this.startScreen = document.getElementById('start-screen');
+        this.levelSelectScreen = document.getElementById('level-select-screen');
         this.victoryScreen = document.getElementById('victory-screen');
         this.gameoverScreen = document.getElementById('gameover-screen');
 
+        // Level system
+        this.currentLevel = 1;
+        this.platforms = [];
+        this.levels = {
+            1: { name: 'Flower Fiend', bossClass: FlowerBoss, hasPlatforms: false },
+            2: { name: 'Grim Matchstick', bossClass: DragonBoss, hasPlatforms: true }
+        };
+
         // Game stats
         this.parriesPerformed = 0;
+
+        // Initialize level select buttons
+        this.setupLevelSelect();
 
         // Screen shake
         this.screenShake = 0;
@@ -47,9 +61,97 @@ class Game {
 
     setupGame() {
         this.player = new Player(640, 580, this.particleSystem, this.soundSystem);
-        this.boss = new FlowerBoss(this.particleSystem);
+
+        // Create boss based on current level
+        const levelData = this.levels[this.currentLevel];
+        this.boss = new levelData.bossClass(this.particleSystem);
+
+        // Setup platforms for levels that need them
+        this.platforms = [];
+        if (levelData.hasPlatforms) {
+            this.setupPlatforms();
+        }
 
         this.bossNameUI.textContent = this.boss.name;
+    }
+
+    setupPlatforms() {
+        // Create cloud platforms for dragon level
+        this.platforms = [
+            new Platform(300, 450, 200, 40, 'static'),
+            new Platform(700, 350, 200, 40, 'moving-horizontal'),
+            new Platform(1000, 500, 180, 40, 'static'),
+            new Platform(500, 250, 160, 40, 'moving-vertical')
+        ];
+    }
+
+    setupLevelSelect() {
+        // Load progress from localStorage
+        this.loadProgress();
+
+        // Add click handlers for level buttons
+        const levelButtons = document.querySelectorAll('.level-button');
+        levelButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const level = parseInt(e.target.getAttribute('data-level'));
+                const card = document.getElementById(`level-${level}-card`);
+
+                if (!card.classList.contains('locked')) {
+                    this.selectLevel(level);
+                }
+            });
+        });
+
+        // Update UI with saved data
+        this.updateLevelSelectUI();
+    }
+
+    loadProgress() {
+        const savedData = localStorage.getItem('cuphead-game-progress');
+        if (savedData) {
+            this.progress = JSON.parse(savedData);
+        } else {
+            this.progress = {
+                unlockedLevels: [1],
+                grades: {}
+            };
+        }
+    }
+
+    saveProgress() {
+        localStorage.setItem('cuphead-game-progress', JSON.stringify(this.progress));
+    }
+
+    updateLevelSelectUI() {
+        // Update locked/unlocked states
+        for (let i = 1; i <= 2; i++) {
+            const card = document.getElementById(`level-${i}-card`);
+            const gradeDisplay = document.getElementById(`level-${i}-grade`);
+
+            if (this.progress.unlockedLevels.includes(i)) {
+                card.classList.remove('locked');
+                if (this.progress.grades[i]) {
+                    gradeDisplay.textContent = this.progress.grades[i];
+                }
+            } else {
+                card.classList.add('locked');
+            }
+        }
+    }
+
+    selectLevel(level) {
+        this.currentLevel = level;
+        this.showLevelSelect(false);
+        this.startGame();
+    }
+
+    showLevelSelect(show) {
+        if (show) {
+            this.levelSelectScreen.style.display = 'flex';
+            this.updateLevelSelectUI();
+        } else {
+            this.levelSelectScreen.style.display = 'none';
+        }
     }
 
     setupUI() {
@@ -109,17 +211,21 @@ class Game {
 
         if (this.gameState === 'start') {
             if (this.input.isPressed('start')) {
-                this.startGame();
+                this.gameState = 'levelselect';
+                this.startScreen.style.display = 'none';
+                this.showLevelSelect(true);
             }
+        } else if (this.gameState === 'levelselect') {
+            // Level selection handled by button clicks
         } else if (this.gameState === 'playing') {
             this.updatePlaying();
         } else if (this.gameState === 'victory') {
             if (this.input.isPressed('start')) {
-                this.restartGame();
+                this.returnToLevelSelect();
             }
         } else if (this.gameState === 'gameover') {
             if (this.input.isPressed('start')) {
-                this.restartGame();
+                this.returnToLevelSelect();
             }
         }
 
@@ -150,8 +256,11 @@ class Game {
     }
 
     updatePlaying() {
-        // Update player
-        this.player.update(this.input);
+        // Update platforms
+        this.platforms.forEach(platform => platform.update());
+
+        // Update player (with platforms)
+        this.player.update(this.input, this.platforms);
 
         // Update boss (continues even when dead for death animation)
         this.boss.update(this.player, this.particleSystem);
@@ -289,7 +398,7 @@ class Game {
             }
         }
 
-        // Petal shield contact damage
+        // Petal shield contact damage (FlowerBoss only)
         if (!this.player.invulnerable && !this.player.isDashing && this.boss.petalShieldActive) {
             this.boss.petals.forEach(petal => {
                 const petalX = this.boss.x + Math.cos(petal.angle) * petal.distance;
@@ -303,6 +412,107 @@ class Game {
                     this.player.takeDamage(1);
                 }
             });
+        }
+
+        // Dragon Boss specific collisions
+        if (this.boss.constructor.name === 'DragonBoss') {
+            // Tail Swipe vs Player
+            if (!this.player.invulnerable && !this.player.isDashing && this.boss.tailSwipeActive) {
+                const playerBottom = this.player.y + this.player.height;
+                const tailY = 640;
+
+                if (this.player.x > this.boss.tailSwipeX &&
+                    this.player.x < this.boss.tailSwipeX + 100 &&
+                    playerBottom >= tailY - 80) {
+                    this.player.takeDamage(1);
+                }
+            }
+
+            // Dive Bomb Impact vs Player
+            if (!this.player.invulnerable && !this.player.isDashing &&
+                this.boss.diveBombActive && this.boss.diveBombPhase === 'diving' && this.boss.y > 600) {
+                const dx = Math.abs(this.boss.x - this.player.x);
+                if (dx < 150) {
+                    this.player.takeDamage(1);
+                    this.screenShake = 15;
+                }
+            }
+
+            // Fire Walls vs Player
+            if (!this.player.invulnerable && !this.player.isDashing) {
+                this.boss.fireWalls.forEach(wall => {
+                    if (this.player.x > wall.x && this.player.x < wall.x + wall.width) {
+                        this.player.takeDamage(1);
+                    }
+                });
+            }
+
+            // Cloud Minions - Player bullets vs Minions
+            for (let i = this.player.bullets.length - 1; i >= 0; i--) {
+                const bullet = this.player.bullets[i];
+
+                for (let j = this.boss.cloudMinions.length - 1; j >= 0; j--) {
+                    const minion = this.boss.cloudMinions[j];
+                    const dx = bullet.x - minion.x;
+                    const dy = bullet.y - minion.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 30) {
+                        minion.takeDamage(bullet.damage);
+                        this.player.addSuper(3);
+                        this.player.bullets.splice(i, 1);
+                        if (minion.dead) {
+                            this.particleSystem.createExplosion(minion.x, minion.y, '#ddd', 15);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Cloud Minion bullets vs Player
+            this.boss.cloudMinions.forEach(minion => {
+                for (let i = minion.bullets.length - 1; i >= 0; i--) {
+                    const bullet = minion.bullets[i];
+
+                    // Check parry
+                    if (this.input.isPressed('jump') && bullet.canParry) {
+                        const dx = bullet.x - this.player.x;
+                        const dy = bullet.y - (this.player.y + this.player.height / 2);
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (distance < 50) {
+                            this.player.parry(bullet);
+                            minion.bullets.splice(i, 1);
+                            this.parriesPerformed++;
+                            continue;
+                        }
+                    }
+
+                    // Check player collision
+                    if (this.checkBulletPlayerCollision(bullet, this.player)) {
+                        if (this.player.takeDamage(1)) {
+                            minion.bullets.splice(i, 1);
+                        }
+                    }
+                }
+            });
+
+            // Cloud Barriers - Block player bullets
+            for (let i = this.player.bullets.length - 1; i >= 0; i--) {
+                const bullet = this.player.bullets[i];
+
+                for (let j = this.boss.cloudBarriers.length - 1; j >= 0; j--) {
+                    const barrier = this.boss.cloudBarriers[j];
+                    const dx = Math.abs(bullet.x - barrier.x);
+                    const dy = Math.abs(bullet.y - barrier.y);
+
+                    if (dx < barrier.width / 2 && dy < barrier.height / 2) {
+                        barrier.health--;
+                        this.player.bullets.splice(i, 1);
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -357,14 +567,39 @@ class Game {
         else if (score >= 45) grade = 'B';
         else if (score >= 30) grade = 'C';
 
+        // Save progress
+        const currentGrade = this.progress.grades[this.currentLevel];
+        const gradeValues = {'S': 4, 'A': 3, 'B': 2, 'C': 1, 'D': 0};
+
+        // Only save if new grade is better
+        if (!currentGrade || gradeValues[grade] > gradeValues[currentGrade]) {
+            this.progress.grades[this.currentLevel] = grade;
+        }
+
+        // Unlock next level
+        const nextLevel = this.currentLevel + 1;
+        if (this.levels[nextLevel] && !this.progress.unlockedLevels.includes(nextLevel)) {
+            this.progress.unlockedLevels.push(nextLevel);
+        }
+
+        this.saveProgress();
+
         // Display results
         document.getElementById('grade-display').textContent = grade;
         document.getElementById('stats-display').innerHTML = `
+            <p><strong>Level:</strong> ${this.levels[this.currentLevel].name}</p>
             <p><strong>Time:</strong> ${timeTaken.toFixed(1)}s</p>
             <p><strong>HP Remaining:</strong> ${hpRemaining}/3</p>
             <p><strong>Parries:</strong> ${this.parriesPerformed}</p>
             <p><strong>Grade:</strong> ${grade}</p>
         `;
+    }
+
+    returnToLevelSelect() {
+        this.gameState = 'levelselect';
+        this.victoryScreen.style.display = 'none';
+        this.gameoverScreen.style.display = 'none';
+        this.showLevelSelect(true);
     }
 
     showGameOverScreen() {
@@ -407,6 +642,9 @@ class Game {
 
         // Draw game objects
         if (this.gameState === 'playing' || this.gameState === 'victory' || this.gameState === 'gameover') {
+            // Draw platforms first
+            this.platforms.forEach(platform => platform.draw(this.ctx));
+
             this.boss.draw(this.ctx);
             this.player.draw(this.ctx);
             this.particleSystem.draw(this.ctx);

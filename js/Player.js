@@ -70,13 +70,17 @@ export class Player {
         this.superDashBulletTimer = 0;
         this.superDashBulletsSpawned = 0;
         this.superDashBulletsMax = 10;
+
+        // Platform support
+        this.currentPlatform = null;
+        this.onPlatform = false;
     }
 
-    update(input) {
+    update(input, platforms = []) {
         if (this.isDashing) {
             this.updateDash();
         } else {
-            this.updateMovement(input);
+            this.updateMovement(input, platforms);
             this.updateShooting(input);
             this.updateWeaponSwitching(input);
             this.updateSuperMoves(input);
@@ -90,7 +94,7 @@ export class Player {
         this.x = Math.max(24, Math.min(1256, this.x));
     }
 
-    updateMovement(input) {
+    updateMovement(input, platforms = []) {
         // Horizontal movement
         this.vx = 0;
         if (input.isDown('left')) {
@@ -104,12 +108,32 @@ export class Player {
 
         this.x += this.vx;
 
+        // Move with platform if standing on one
+        if (this.currentPlatform && this.onPlatform) {
+            this.x += this.currentPlatform.vx || 0;
+        }
+
         // Gravity and vertical movement
-        if (!this.onGround) {
+        if (!this.onGround && !this.onPlatform) {
             this.vy += this.gravity;
         }
 
         this.y += this.vy;
+
+        // Platform collision (check before ground)
+        this.onPlatform = false;
+        this.currentPlatform = null;
+
+        for (const platform of platforms) {
+            if (platform.checkCollision(this)) {
+                this.y = platform.y - this.height;
+                this.vy = 0;
+                this.onPlatform = true;
+                this.currentPlatform = platform;
+                this.canDoubleJump = true;
+                break;
+            }
+        }
 
         // Ground collision
         if (this.y >= this.groundY) {
@@ -121,11 +145,12 @@ export class Player {
             this.onGround = false;
         }
 
-        // Jumping
+        // Jumping (can jump from ground OR platform)
         if (input.isPressed('jump')) {
-            if (this.onGround) {
+            if (this.onGround || this.onPlatform) {
                 this.vy = -this.jumpPower;
                 this.onGround = false;
+                this.onPlatform = false;
                 if (this.soundSystem) this.soundSystem.playJump();
             } else if (this.canDoubleJump) {
                 this.vy = -this.jumpPower;
