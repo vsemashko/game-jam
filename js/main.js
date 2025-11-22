@@ -54,6 +54,12 @@ class Game {
         // Game stats
         this.parriesPerformed = 0;
 
+        // Combo/Score system
+        this.combo = 0;
+        this.maxCombo = 0;
+        this.score = 0;
+        this.comboFlash = 0; // Visual feedback timer
+
         // Initialize level select buttons
         this.setupLevelSelect();
 
@@ -227,6 +233,22 @@ class Game {
             `;
             superMeterContainer.appendChild(indicator);
         }
+
+        // Create combo/score display
+        if (!document.getElementById('combo-score-display')) {
+            const uiOverlay = document.getElementById('ui-overlay');
+            const comboScoreDiv = document.createElement('div');
+            comboScoreDiv.id = 'combo-score-display';
+            comboScoreDiv.style.cssText = `
+                position: absolute;
+                top: 50%;
+                right: 20px;
+                transform: translateY(-50%);
+                text-align: right;
+                pointer-events: none;
+            `;
+            uiOverlay.appendChild(comboScoreDiv);
+        }
     }
 
     updatePlayerHealthUI() {
@@ -307,6 +329,48 @@ class Game {
         }
     }
 
+    updateComboScoreUI() {
+        const comboDisplay = document.getElementById('combo-score-display');
+        if (!comboDisplay) return;
+
+        const multiplier = this.getComboMultiplier();
+        const flashClass = this.comboFlash > 0 ? 'flash' : '';
+
+        let html = `
+            <div style="font-size: 18px; color: #ccc; text-shadow: 1px 1px 0 #000; margin-bottom: 5px;">
+                SCORE: ${this.score.toLocaleString()}
+            </div>
+        `;
+
+        if (this.combo > 0) {
+            // Color based on multiplier
+            let color = '#fff';
+            if (multiplier >= 3.0) color = '#ffeb3b'; // Gold
+            else if (multiplier >= 2.0) color = '#ffa500'; // Orange
+            else if (multiplier >= 1.5) color = '#4ecdc4'; // Cyan
+
+            const scale = this.comboFlash > 0 ? 1.2 : 1.0;
+
+            html += `
+                <div style="
+                    font-size: ${Math.floor(32 * scale)}px;
+                    font-weight: bold;
+                    color: ${color};
+                    text-shadow: 2px 2px 0 #000, ${this.comboFlash > 0 ? '0 0 20px ' + color : 'none'};
+                    transition: all 0.1s ease;
+                    margin-bottom: 5px;
+                ">
+                    ${this.combo} HIT${this.combo > 1 ? 'S' : ''}!
+                </div>
+                <div style="font-size: 14px; color: ${color}; text-shadow: 1px 1px 0 #000;">
+                    ${multiplier}x MULTIPLIER
+                </div>
+            `;
+        }
+
+        comboDisplay.innerHTML = html;
+    }
+
     update() {
         // Help overlay toggle (works in any state)
         if (this.input.isPressed('help')) {
@@ -367,6 +431,11 @@ class Game {
             this.shakeY = 0;
         }
 
+        // Update combo flash timer
+        if (this.comboFlash > 0) {
+            this.comboFlash--;
+        }
+
         this.particleSystem.update();
         this.input.update();
     }
@@ -381,6 +450,12 @@ class Game {
         this.startScreen.style.display = 'none';
         this.startTime = Date.now();
         this.parriesPerformed = 0;
+
+        // Reset combo/score
+        this.combo = 0;
+        this.maxCombo = 0;
+        this.score = 0;
+        this.comboFlash = 0;
     }
 
     updatePlaying() {
@@ -422,6 +497,7 @@ class Game {
         this.updateBossHealthUI();
         this.updateSuperMeterUI();
         this.updateWeaponUI();
+        this.updateComboScoreUI();
 
         // Check win condition
         if (this.boss.dead && this.gameState === 'playing') {
@@ -455,6 +531,7 @@ class Game {
             if (this.checkBulletBossCollision(bullet, this.boss)) {
                 this.boss.takeDamage(bullet.damage, this.particleSystem);
                 this.player.addSuper(5);
+                this.addCombo(10); // 10 base points for boss hit
 
                 // Boss-specific particle effects
                 const bossType = this.boss.constructor.name === 'DragonBoss' ? 'dragon' : 'flower';
@@ -473,6 +550,7 @@ class Game {
                 if (this.checkBulletFlytrapCollision(bullet, flytrap)) {
                     flytrap.takeDamage(bullet.damage);
                     this.player.addSuper(3);
+                    this.addCombo(5); // 5 base points for minion hit
                     this.player.bullets.splice(i, 1);
 
                     // Spawn health pickup on death (10% chance)
@@ -499,6 +577,7 @@ class Game {
                     this.boss.bullets.splice(i, 1);
                     this.parriesPerformed++;
                     this.freezeFrames = 5; // Medium freeze for parry
+                    this.addCombo(50); // 50 base points for parry!
                     continue;
                 }
             }
@@ -508,6 +587,7 @@ class Game {
                 if (this.player.takeDamage(1)) {
                     this.boss.bullets.splice(i, 1);
                     this.freezeFrames = 4; // Medium freeze for player damage
+                    this.breakCombo(); // Break combo when taking damage
                 }
             }
         }
@@ -521,6 +601,7 @@ class Game {
             if (distance < 80) {
                 if (this.player.takeDamage(1)) {
                     this.freezeFrames = 4;
+                    this.breakCombo();
                 }
             }
         }
@@ -533,7 +614,9 @@ class Game {
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance < 50) {
-                    this.player.takeDamage(1);
+                    if (this.player.takeDamage(1)) {
+                        this.breakCombo();
+                    }
                 }
             }
         });
@@ -546,7 +629,9 @@ class Game {
                     const dy = this.player.y + this.player.height - (spike.y - 80);
 
                     if (dx < 20 && dy > 0 && dy < 80) {
-                        this.player.takeDamage(1);
+                        if (this.player.takeDamage(1)) {
+                            this.breakCombo();
+                        }
                     }
                 }
             });
@@ -559,7 +644,9 @@ class Game {
             const halfHeight = this.boss.chompHitbox.height / 2;
 
             if (playerY > chompY - halfHeight && playerY < chompY + halfHeight) {
-                this.player.takeDamage(1);
+                if (this.player.takeDamage(1)) {
+                    this.breakCombo();
+                }
                 this.screenShake = 10;
             }
         }
@@ -575,7 +662,9 @@ class Game {
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance < 40) {
-                    this.player.takeDamage(1);
+                    if (this.player.takeDamage(1)) {
+                        this.breakCombo();
+                    }
                 }
             });
         }
@@ -590,7 +679,9 @@ class Game {
                 if (this.player.x > this.boss.tailSwipeX &&
                     this.player.x < this.boss.tailSwipeX + 100 &&
                     playerBottom >= tailY - 80) {
-                    this.player.takeDamage(1);
+                    if (this.player.takeDamage(1)) {
+                        this.breakCombo();
+                    }
                 }
             }
 
@@ -599,7 +690,9 @@ class Game {
                 this.boss.diveBombActive && this.boss.diveBombPhase === 'diving' && this.boss.y > 600) {
                 const dx = Math.abs(this.boss.x - this.player.x);
                 if (dx < 150) {
-                    this.player.takeDamage(1);
+                    if (this.player.takeDamage(1)) {
+                        this.breakCombo();
+                    }
                     this.screenShake = 15;
                 }
             }
@@ -608,7 +701,9 @@ class Game {
             if (!this.player.invulnerable && !this.player.isDashing) {
                 this.boss.fireWalls.forEach(wall => {
                     if (this.player.x > wall.x && this.player.x < wall.x + wall.width) {
-                        this.player.takeDamage(1);
+                        if (this.player.takeDamage(1)) {
+                            this.breakCombo();
+                        }
                     }
                 });
             }
@@ -626,6 +721,7 @@ class Game {
                     if (distance < 30) {
                         minion.takeDamage(bullet.damage);
                         this.player.addSuper(3);
+                        this.addCombo(5); // 5 base points for minion hit
                         this.player.bullets.splice(i, 1);
                         if (minion.dead) {
                             this.particleSystem.createExplosion(minion.x, minion.y, '#ddd', 15);
@@ -656,6 +752,7 @@ class Game {
                             minion.bullets.splice(i, 1);
                             this.parriesPerformed++;
                             this.freezeFrames = 5; // Medium freeze for parry
+                            this.addCombo(50); // 50 base points for parry!
                             continue;
                         }
                     }
@@ -665,6 +762,7 @@ class Game {
                         if (this.player.takeDamage(1)) {
                             minion.bullets.splice(i, 1);
                             this.freezeFrames = 4; // Medium freeze for player damage
+                            this.breakCombo(); // Break combo when taking damage
                         }
                     }
                 }
@@ -710,6 +808,37 @@ class Game {
         const dy = bullet.y - (player.y + player.height / 2);
         const distance = Math.sqrt(dx * dx + dy * dy);
         return distance < 30;
+    }
+
+    getComboMultiplier() {
+        if (this.combo >= 20) return 3.0;
+        if (this.combo >= 10) return 2.0;
+        if (this.combo >= 5) return 1.5;
+        return 1.0;
+    }
+
+    addCombo(basePoints) {
+        this.combo++;
+        this.maxCombo = Math.max(this.maxCombo, this.combo);
+
+        const multiplier = this.getComboMultiplier();
+        const points = Math.floor(basePoints * multiplier);
+        this.score += points;
+
+        // Visual feedback flash
+        this.comboFlash = 15;
+
+        // Milestone feedback (every 5 hits)
+        if (this.combo % 5 === 0 && this.combo > 0) {
+            this.particleSystem.createExplosion(640, 100, '#ffeb3b', 15);
+        }
+    }
+
+    breakCombo() {
+        if (this.combo > 0) {
+            this.combo = 0;
+            this.comboFlash = 0;
+        }
     }
 
     showVictoryScreen() {
@@ -761,9 +890,11 @@ class Game {
         document.getElementById('grade-display').textContent = grade;
         document.getElementById('stats-display').innerHTML = `
             <p><strong>Level:</strong> ${this.levels[this.currentLevel].name}</p>
+            <p><strong>Score:</strong> ${this.score.toLocaleString()}</p>
             <p><strong>Time:</strong> ${timeTaken.toFixed(1)}s</p>
             <p><strong>HP Remaining:</strong> ${hpRemaining}/3</p>
             <p><strong>Parries:</strong> ${this.parriesPerformed}</p>
+            <p><strong>Max Combo:</strong> ${this.maxCombo} hits</p>
             <p><strong>Grade:</strong> ${grade}</p>
         `;
     }
@@ -815,9 +946,11 @@ class Game {
 
         document.getElementById('gameover-stats').innerHTML = `
             <p style="font-size: 20px; margin: 30px 0;">You survived for ${timeTaken.toFixed(1)} seconds</p>
+            <p style="font-size: 18px; margin: 10px 0;">Score: ${this.score.toLocaleString()}</p>
             <p style="font-size: 18px; margin: 10px 0;">Damage Dealt: ${damageDealt}%</p>
             <p style="font-size: 18px; margin: 10px 0;">Highest Phase: ${currentPhase}/3</p>
             <p style="font-size: 18px; margin: 10px 0;">Parries: ${this.parriesPerformed}</p>
+            <p style="font-size: 18px; margin: 10px 0;">Max Combo: ${this.maxCombo} hits</p>
             ${recordText}
             <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #8B4513;">
                 <p style="font-size: 16px; color: #ccc;">BEST ATTEMPT:</p>
