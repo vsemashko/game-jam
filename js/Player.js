@@ -172,6 +172,12 @@ export class Player {
             if (input.isDown('shoot')) {
                 this.isCharging = true;
                 this.chargeLevel = Math.min(this.maxCharge, this.chargeLevel + 1);
+
+                // Add charging particles effect (more particles as charge increases)
+                if (this.chargeLevel % 5 === 0) {
+                    const chargeX = this.x + (this.facing > 0 ? 30 : -30);
+                    this.particleSystem.createChargeEffect(chargeX, this.y + 20);
+                }
             } else if (this.isCharging) {
                 // Release charge shot
                 const chargeLevel = Math.floor(this.chargeLevel / 20) + 1; // 1-3
@@ -278,8 +284,22 @@ export class Player {
 
     updateBullets() {
         for (let i = this.bullets.length - 1; i >= 0; i--) {
-            this.bullets[i].update();
-            if (this.bullets[i].dead) {
+            const bullet = this.bullets[i];
+            bullet.update();
+
+            // Add weapon-specific particle trails (every 3 frames)
+            if (bullet.age % 3 === 0 && bullet.isPlayerBullet) {
+                // Determine weapon type from bullet class or color
+                let weaponType = 'peashooter';
+                if (bullet.constructor.name === 'SpreadBullet') {
+                    weaponType = 'spread';
+                } else if (bullet.constructor.name === 'ChargeBullet') {
+                    weaponType = 'charge';
+                }
+                this.particleSystem.createWeaponTrail(bullet.x, bullet.y, weaponType);
+            }
+
+            if (bullet.dead) {
                 this.bullets.splice(i, 1);
             }
         }

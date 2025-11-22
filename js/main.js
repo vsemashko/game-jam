@@ -68,6 +68,9 @@ class Game {
         // Help overlay
         this.helpVisible = false;
 
+        // Freeze frames (hit-stop effect)
+        this.freezeFrames = 0;
+
         this.setupGame();
         this.setupUI();
         this.gameLoop();
@@ -205,6 +208,25 @@ class Game {
         // Create health cards
         this.updatePlayerHealthUI();
         this.updateWeaponUI();
+
+        // Create super level indicator
+        if (!document.getElementById('super-level-indicator')) {
+            const superMeterContainer = document.getElementById('super-meter');
+            const indicator = document.createElement('div');
+            indicator.id = 'super-level-indicator';
+            indicator.style.cssText = `
+                position: absolute;
+                bottom: -25px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: #4ecdc4;
+                font-size: 14px;
+                font-weight: bold;
+                text-shadow: 1px 1px 0 #000;
+                white-space: nowrap;
+            `;
+            superMeterContainer.appendChild(indicator);
+        }
     }
 
     updatePlayerHealthUI() {
@@ -227,6 +249,46 @@ class Game {
     updateSuperMeterUI() {
         const percent = (this.player.superMeter / this.player.maxSuper) * 100;
         this.superMeterUI.style.width = percent + '%';
+
+        // Update super level indicators
+        const superLevel = Math.floor(this.player.superMeter / 100);
+        const cardMarkers = document.querySelectorAll('.card-marker');
+
+        // Update card marker colors based on available super level
+        cardMarkers.forEach((marker, index) => {
+            const level = index + 1; // 1-indexed
+            if (superLevel >= level) {
+                marker.style.background = '#ffeb3b'; // Gold for available
+                marker.style.boxShadow = '0 0 10px #ffeb3b';
+            } else {
+                marker.style.background = '#000'; // Black for unavailable
+                marker.style.boxShadow = 'none';
+            }
+        });
+
+        // Update text indicator
+        const indicator = document.getElementById('super-level-indicator');
+        if (indicator) {
+            const superNames = {
+                0: 'SUPER: CHARGING...',
+                1: 'SUPER I: READY!',
+                2: 'SUPER II: READY!',
+                3: 'SUPER III: READY!'
+            };
+            indicator.textContent = superNames[superLevel] || superNames[0];
+
+            // Color based on level
+            if (superLevel === 0) {
+                indicator.style.color = '#666';
+            } else if (superLevel === 1) {
+                indicator.style.color = '#4ecdc4';
+            } else if (superLevel === 2) {
+                indicator.style.color = '#ffa500';
+            } else if (superLevel === 3) {
+                indicator.style.color = '#ffeb3b';
+                indicator.style.textShadow = '1px 1px 0 #000, 0 0 10px #ffeb3b';
+            }
+        }
     }
 
     updateWeaponUI() {
@@ -255,6 +317,13 @@ class Game {
         // If help is visible, don't process other inputs
         if (this.helpVisible) {
             this.input.update();
+            return;
+        }
+
+        // Freeze frames (hit-stop effect)
+        if (this.freezeFrames > 0) {
+            this.freezeFrames--;
+            this.draw(); // Still draw during freeze for visual feedback
             return;
         }
 
@@ -373,6 +442,8 @@ class Game {
         if (this.player.superBeamActive && this.player.superBeamHit) {
             this.boss.takeDamage(10, this.particleSystem);
             this.screenShake = 15;
+            this.freezeFrames = 8; // Heavy freeze for super move
+            this.particleSystem.createSuperExplosion(this.boss.x, this.boss.y); // Rainbow explosion
             this.player.superBeamHit = false; // Only hit once
         }
 
@@ -384,8 +455,14 @@ class Game {
             if (this.checkBulletBossCollision(bullet, this.boss)) {
                 this.boss.takeDamage(bullet.damage, this.particleSystem);
                 this.player.addSuper(5);
+
+                // Boss-specific particle effects
+                const bossType = this.boss.constructor.name === 'DragonBoss' ? 'dragon' : 'flower';
+                this.particleSystem.createBossHitEffect(bullet.x, bullet.y, bossType);
+
                 this.player.bullets.splice(i, 1);
                 this.screenShake = 3;
+                this.freezeFrames = 2; // Light freeze for regular hits
                 if (this.soundSystem.initialized) this.soundSystem.playBossHit();
                 continue;
             }
@@ -421,6 +498,7 @@ class Game {
                     this.player.parry(bullet);
                     this.boss.bullets.splice(i, 1);
                     this.parriesPerformed++;
+                    this.freezeFrames = 5; // Medium freeze for parry
                     continue;
                 }
             }
@@ -429,6 +507,7 @@ class Game {
             if (this.checkBulletPlayerCollision(bullet, this.player)) {
                 if (this.player.takeDamage(1)) {
                     this.boss.bullets.splice(i, 1);
+                    this.freezeFrames = 4; // Medium freeze for player damage
                 }
             }
         }
@@ -440,7 +519,9 @@ class Game {
             const distance = Math.sqrt(dx * dx + dy * dy);
 
             if (distance < 80) {
-                this.player.takeDamage(1);
+                if (this.player.takeDamage(1)) {
+                    this.freezeFrames = 4;
+                }
             }
         }
 
@@ -574,6 +655,7 @@ class Game {
                             this.player.parry(bullet);
                             minion.bullets.splice(i, 1);
                             this.parriesPerformed++;
+                            this.freezeFrames = 5; // Medium freeze for parry
                             continue;
                         }
                     }
@@ -582,6 +664,7 @@ class Game {
                     if (this.checkBulletPlayerCollision(bullet, this.player)) {
                         if (this.player.takeDamage(1)) {
                             minion.bullets.splice(i, 1);
+                            this.freezeFrames = 4; // Medium freeze for player damage
                         }
                     }
                 }
@@ -827,15 +910,47 @@ class Game {
         this.ctx.fillStyle = gradient;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Clouds
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        // Distant mountains (parallax layer 1 - slowest)
+        this.ctx.fillStyle = 'rgba(139, 90, 43, 0.2)';
+        const mountainOffset1 = (Date.now() * 0.003) % (this.canvas.width + 400);
+        for (let i = 0; i < 3; i++) {
+            const x = (i * 600 - mountainOffset1) - 200;
+            this.drawMountain(x, 500, 250, 150);
+        }
+
+        // Far clouds (parallax layer 2)
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        for (let i = 0; i < 4; i++) {
+            const x = ((Date.now() * 0.005 + i * 400) % (this.canvas.width + 250)) - 125;
+            const y = 80 + i * 50;
+            this.drawCloud(x, y, 0.7);
+        }
+
+        // Mid-distance hills (parallax layer 3)
+        this.ctx.fillStyle = 'rgba(107, 142, 35, 0.3)';
+        const hillOffset = (Date.now() * 0.008) % (this.canvas.width + 300);
+        for (let i = 0; i < 4; i++) {
+            const x = (i * 450 - hillOffset) - 150;
+            this.drawMountain(x, 550, 180, 100);
+        }
+
+        // Mid clouds (parallax layer 4)
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         for (let i = 0; i < 5; i++) {
             const x = ((Date.now() * 0.01 + i * 300) % (this.canvas.width + 200)) - 100;
             const y = 50 + i * 60;
-            this.drawCloud(x, y);
+            this.drawCloud(x, y, 1.0);
         }
 
-        // Background plants
+        // Near clouds (parallax layer 5 - fastest)
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        for (let i = 0; i < 3; i++) {
+            const x = ((Date.now() * 0.02 + i * 500) % (this.canvas.width + 250)) - 125;
+            const y = 120 + i * 100;
+            this.drawCloud(x, y, 1.2);
+        }
+
+        // Background plants (parallax layer 6)
         this.ctx.fillStyle = 'rgba(34, 139, 34, 0.3)';
         for (let i = 0; i < 10; i++) {
             const x = i * 150;
@@ -844,11 +959,20 @@ class Game {
         }
     }
 
-    drawCloud(x, y) {
+    drawCloud(x, y, scale = 1.0) {
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 30, 0, Math.PI * 2);
-        this.ctx.arc(x + 40, y, 40, 0, Math.PI * 2);
-        this.ctx.arc(x + 80, y, 30, 0, Math.PI * 2);
+        this.ctx.arc(x, y, 30 * scale, 0, Math.PI * 2);
+        this.ctx.arc(x + 40 * scale, y, 40 * scale, 0, Math.PI * 2);
+        this.ctx.arc(x + 80 * scale, y, 30 * scale, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+
+    drawMountain(x, baseY, width, height) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, baseY);
+        this.ctx.lineTo(x + width / 2, baseY - height);
+        this.ctx.lineTo(x + width, baseY);
+        this.ctx.closePath();
         this.ctx.fill();
     }
 

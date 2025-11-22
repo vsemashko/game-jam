@@ -166,9 +166,10 @@ body {
     position: absolute;
     top: 0;
     height: 100%;
-    width: 3px;
+    width: 4px;
     background: #000;
     z-index: 1;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
 #start-screen, #victory-screen, #level-select-screen, #gameover-screen {
