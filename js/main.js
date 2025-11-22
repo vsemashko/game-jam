@@ -27,6 +27,7 @@ class Game {
         this.weaponDisplayUI = document.getElementById('weapon-display');
         this.startScreen = document.getElementById('start-screen');
         this.victoryScreen = document.getElementById('victory-screen');
+        this.gameoverScreen = document.getElementById('gameover-screen');
 
         // Game stats
         this.parriesPerformed = 0;
@@ -46,7 +47,7 @@ class Game {
     }
 
     setupGame() {
-        this.player = new Player(640, 580, this.particleSystem);
+        this.player = new Player(640, 580, this.particleSystem, this.soundSystem);
         this.boss = new FlowerBoss(this.particleSystem);
 
         this.bossNameUI.textContent = this.boss.name;
@@ -131,6 +132,11 @@ class Game {
     }
 
     startGame() {
+        // Initialize sound system on first user interaction
+        if (!this.soundSystem.initialized) {
+            this.soundSystem.init();
+        }
+
         this.gameState = 'playing';
         this.startScreen.style.display = 'none';
         this.startTime = Date.now();
@@ -158,14 +164,14 @@ class Game {
         // Check win condition
         if (this.boss.dead && this.gameState === 'playing') {
             this.endTime = Date.now();
+            if (this.soundSystem.initialized) this.soundSystem.playVictory();
             this.showVictoryScreen();
         }
 
         // Check lose condition
         if (this.player.health <= 0 && this.gameState === 'playing') {
-            this.gameState = 'gameover';
-            // Could add game over screen here
-            setTimeout(() => this.restartGame(), 2000);
+            this.endTime = Date.now();
+            this.showGameOverScreen();
         }
     }
 
@@ -187,6 +193,7 @@ class Game {
                 this.player.addSuper(5);
                 this.player.bullets.splice(i, 1);
                 this.screenShake = 3;
+                if (this.soundSystem.initialized) this.soundSystem.playBossHit();
                 continue;
             }
 
@@ -356,10 +363,28 @@ class Game {
         `;
     }
 
+    showGameOverScreen() {
+        this.gameState = 'gameover';
+        this.gameoverScreen.style.display = 'flex';
+
+        // Calculate stats
+        const timeTaken = (this.endTime - this.startTime) / 1000;
+        const bossHPRemaining = Math.round((this.boss.health / this.boss.maxHealth) * 100);
+
+        // Display results
+        document.getElementById('gameover-stats').innerHTML = `
+            <p style="font-size: 20px; margin: 30px 0;">You survived for ${timeTaken.toFixed(1)} seconds</p>
+            <p style="font-size: 18px; margin: 10px 0;">Boss HP Remaining: ${bossHPRemaining}%</p>
+            <p style="font-size: 18px; margin: 10px 0;">Parries Performed: ${this.parriesPerformed}</p>
+            <p style="font-size: 16px; margin: 30px 0; color: #ffeb3b;">Keep practicing! You'll get it!</p>
+        `;
+    }
+
     restartGame() {
         this.gameState = 'start';
         this.startScreen.style.display = 'flex';
         this.victoryScreen.style.display = 'none';
+        this.gameoverScreen.style.display = 'none';
         this.setupGame();
         this.setupUI();
     }
@@ -401,6 +426,24 @@ class Game {
 
             this.ctx.font = '24px Arial';
             this.ctx.fillText('Press ESC to resume', this.canvas.width / 2, this.canvas.height / 2 + 60);
+        }
+
+        // Draw boss intro overlay
+        if (this.gameState === 'playing' && this.boss.introActive) {
+            const alpha = Math.min(1, this.boss.introTimer / 60);
+            this.ctx.fillStyle = `rgba(0, 0, 0, ${alpha * 0.5})`;
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            // Pulsing "READY!" text
+            const pulse = 1 + Math.sin(this.boss.introTimer * 0.1) * 0.1;
+            this.ctx.fillStyle = '#ffeb3b';
+            this.ctx.font = `bold ${Math.floor(96 * pulse)}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.shadowBlur = 20;
+            this.ctx.shadowColor = '#ffeb3b';
+            this.ctx.fillText('READY!', this.canvas.width / 2, this.canvas.height / 2);
+            this.ctx.shadowBlur = 0;
         }
     }
 

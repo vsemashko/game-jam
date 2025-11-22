@@ -130,9 +130,27 @@ export class FlowerBoss extends Boss {
         this.chompTimer = 0;
         this.chompWarningTimer = 0;
         this.chompHitbox = null;
+
+        // Intro animation
+        this.introActive = true;
+        this.introTimer = 120; // 2 seconds
+        this.introY = 800; // Start below screen
     }
 
     update(player, particleSystem) {
+        // Handle intro animation
+        if (this.introActive) {
+            this.introTimer--;
+            // Rise from below
+            this.introY += (this.y - this.introY) * 0.1;
+
+            if (this.introTimer <= 0) {
+                this.introActive = false;
+                this.introY = this.y;
+            }
+            return; // Don't do anything else during intro
+        }
+
         const currentPhase = this.getCurrentPhase();
 
         // Check for phase transition
@@ -544,7 +562,9 @@ export class FlowerBoss extends Boss {
             ctx.filter = 'brightness(2)';
         }
 
-        ctx.translate(this.x, this.y);
+        // Use intro position if intro is active
+        const drawY = this.introActive ? this.introY : this.y;
+        ctx.translate(this.x, drawY);
 
         // Stem/roots
         ctx.strokeStyle = this.isRooted ? '#228B22' : '#8B4513';

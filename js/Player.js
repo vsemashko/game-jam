@@ -1,7 +1,7 @@
 import { Bullet, SpreadBullet, ChargeBullet } from './Bullet.js';
 
 export class Player {
-    constructor(x, y, particleSystem) {
+    constructor(x, y, particleSystem, soundSystem = null) {
         this.x = x;
         this.y = y;
         this.width = 48;
@@ -9,6 +9,7 @@ export class Player {
         this.vx = 0;
         this.vy = 0;
         this.particleSystem = particleSystem;
+        this.soundSystem = soundSystem;
 
         // Movement
         this.speed = 4;
@@ -119,10 +120,12 @@ export class Player {
             if (this.onGround) {
                 this.vy = -this.jumpPower;
                 this.onGround = false;
+                if (this.soundSystem) this.soundSystem.playJump();
             } else if (this.canDoubleJump) {
                 this.vy = -this.jumpPower;
                 this.canDoubleJump = false;
                 this.particleSystem.createDashEffect(this.x, this.y + this.height);
+                if (this.soundSystem) this.soundSystem.playJump();
             }
         }
 
@@ -162,6 +165,8 @@ export class Player {
     }
 
     shoot() {
+        if (this.soundSystem) this.soundSystem.playShoot();
+
         if (this.currentWeapon === 'peashooter') {
             const bullet = new Bullet(
                 this.x + (this.facing > 0 ? 30 : -30),
@@ -215,6 +220,7 @@ export class Player {
         this.dashTimer = this.dashDuration;
         this.invulnerable = true;
         this.dashCooldown = this.dashCooldownMax;
+        if (this.soundSystem) this.soundSystem.playDash();
     }
 
     updateDash() {
@@ -283,6 +289,7 @@ export class Player {
         this.iframeTimer = this.iframeDuration;
         this.invulnerable = true;
         this.particleSystem.createHitEffect(this.x, this.y + this.height / 2);
+        if (this.soundSystem) this.soundSystem.playHit();
 
         return true;
     }
@@ -300,6 +307,7 @@ export class Player {
         this.vy = -this.jumpPower * 0.8; // Bounce
         this.canDoubleJump = true;
         this.particleSystem.createParryEffect(bullet.x, bullet.y);
+        if (this.soundSystem) this.soundSystem.playParry();
         return true;
     }
 
@@ -311,10 +319,12 @@ export class Player {
             const nextIndex = (currentIndex + 1) % weapons.length;
             this.currentWeapon = weapons[nextIndex];
             this.weaponSwitchFlash = 30;
+            if (this.soundSystem) this.soundSystem.playJump(); // Reuse jump sound for switch
         } else if (input.isPressed('weaponPrev')) {
             const prevIndex = (currentIndex - 1 + weapons.length) % weapons.length;
             this.currentWeapon = weapons[prevIndex];
             this.weaponSwitchFlash = 30;
+            if (this.soundSystem) this.soundSystem.playJump(); // Reuse jump sound for switch
         }
 
         if (this.weaponSwitchFlash) {
@@ -338,6 +348,7 @@ export class Player {
         if (this.superMeter < cost) return;
 
         this.superMeter -= cost;
+        if (this.soundSystem) this.soundSystem.playSuper(level);
 
         if (level === 1) {
             // Level I: Invincibility dash attack
@@ -488,6 +499,35 @@ export class Player {
 
         // Draw bullets
         this.bullets.forEach(bullet => bullet.draw(ctx));
+
+        // Draw dash cooldown indicator
+        if (this.dashCooldown > 0) {
+            ctx.save();
+            ctx.translate(this.x, this.y - 50);
+
+            // Background circle
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Cooldown arc
+            const cooldownPercent = this.dashCooldown / this.dashCooldownMax;
+            ctx.strokeStyle = '#4ecdc4';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, 15, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * (1 - cooldownPercent)));
+            ctx.stroke();
+
+            // Dash icon (simple 'D')
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('D', 0, 0);
+
+            ctx.restore();
+        }
 
         // Draw super beam (Level III)
         if (this.superBeamActive) {
